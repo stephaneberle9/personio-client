@@ -1,0 +1,86 @@
+/**
+ * Example: export attendance and/or absence data to Excel files that reproduce
+ * the reference report format exactly (sheet names, header order, exact labels).
+ *
+ *   tsx examples/export-xlsx.ts --from 2026-06-01 --to 2026-06-30 \
+ *     --type both --source api --out ./out
+ *
+ * Flags:
+ *   --from <YYYY-MM-DD>      range start (required)
+ *   --to   <YYYY-MM-DD>      range end (required)
+ *   --type attendance|absence|both   what to export (default: both)
+ *   --source api|report      data source (default: report if PERSONIO_REPORT_ID set, else api)
+ *   --out <dir>              output directory (default: .)
+ *
+ * Credentials come from .env (PERSONIO_CLIENT_ID / PERSONIO_CLIENT_SECRET).
+ */
+import 'dotenv/config';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  AbsenceService,
+  AttendanceService,
+  PersonioClient,
+  configFromEnv,
+  createSource,
+  resolveSourceKind,
+  type DateRange,
+  type SourceKind,
+} from '../src/index.js';
+import { parseArgs, requireString } from './lib/args.js';
+import {
+  ABSENCE_HEADERS,
+  ABSENCE_SHEET_NAME,
+  ATTENDANCE_HEADERS,
+  ATTENDANCE_SHEET_NAME,
+  absenceRow,
+  attendanceRow,
+} from './lib/columns.js';
+import { buildSheetWorkbook, writeWorkbook } from './lib/xlsx.js';
+
+type ExportType = 'attendance' | 'absence' | 'both';
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  const range: DateRange = { from: requireString(args, 'from'), to: requireString(args, 'to') };
+  const type = (args.type ?? 'both') as ExportType;
+  const outDir = typeof args.out === 'string' ? args.out : '.';
+  const reportId = process.env.PERSONIO_REPORT_ID;
+
+  const sourceArg = args.source;
+  const kind: SourceKind = resolveSourceKind({
+    kind: typeof sourceArg === 'string' ? (sourceArg as SourceKind) : undefined,
+    report: reportId ? { reportId } : undefined,
+  });
+
+  const client = new PersonioClient(configFromEnv());
+  const source = createSource(client, {
+    kind,
+    report: reportId ? { reportId, filterByRange: true } : undefined,
+  });
+
+  mkdirSync(outDir, { recursive: true });
+
+  if (type === 'attendance' || type === 'both') {
+    const records = await new AttendanceService(source).getRecords(range);
+    const rows = records.map((r) => attendanceRow(r, range));
+    const workbook = buildSheetWorkbook(ATTENDANCE_SHEET_NAME, ATTENDANCE_HEADERS, rows);
+    const path = join(outDir, `attendance_${range.from}_${range.to}.xlsx`);
+    writeWorkbook(workbook, path);
+    console.log(`Wrote ${records.length} attendance rows → ${path} (source: ${kind})`);
+  }
+
+  if (type === 'absence' || type === 'both') {
+    const records = await new AbsenceService(source).getRecords(range);
+    const rows = records.map((r) => absenceRow(r, range));
+    const workbook = buildSheetWorkbook(ABSENCE_SHEET_NAME, ABSENCE_HEADERS, rows);
+    const path = join(outDir, `absence_${range.from}_${range.to}.xlsx`);
+    writeWorkbook(workbook, path);
+    console.log(`Wrote ${records.length} absence rows → ${path} (source: ${kind})`);
+  }
+}
+
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
+});

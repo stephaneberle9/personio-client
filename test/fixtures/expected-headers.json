@@ -1,0 +1,69 @@
+{
+  "_note": "Ground-truth column-header specification captured from the reference spreadsheets. Header labels only (no personal data). Used to assert Excel output equality.",
+  "attendance": {
+    "sheetName": "Anwesenheitszeiträume nach Kund",
+    "headers": [
+      "Startdatum",
+      "Enddatum",
+      "Kostenträger Nummer",
+      "Nachname (bürgerlich)",
+      "Vorname (bürgerlich)",
+      "Anwesenheit Projekt Kunde Name",
+      "Anwesenheitsprojekt",
+      "Anwesenheitsprojekt – Code",
+      "Anwesenheiten – Unterprojekt",
+      "Anwesenheitsdatum",
+      "Erfasste Anwesenheitsstunden",
+      "Kommentar zur Anwesenheit",
+      "Projektleitung alt",
+      "Anwesenheitsprojekt abrechenbar",
+      "Anwesenheitsprojekt – Startdatum",
+      "Anwesenheitsprojekt – Enddatum",
+      "Anwesenheitsprojekt – Kostenstelle"
+    ]
+  },
+  "monthly": {
+    "sheetName": "Monatsbetrachtung Anwesenheitsz",
+    "headers": [
+      "Startdatum",
+      "Enddatum",
+      "Kostenträger Nummer",
+      "Nachname (bürgerlich)",
+      "Vorname (bürgerlich)",
+      "Anwesenheit Projekt Kunde Name",
+      "Anwesenheitsprojekt",
+      "Anwesenheitsprojekt – Code",
+      "Anwesenheiten – Unterprojekt",
+      "Anwesenheitsdatum",
+      "Erfasste Anwesenheitsstunden",
+      "Kommentar zur Anwesenheit",
+      "Projektleitung alt",
+      "Anwesenheitsprojekt abrechenbar",
+      "Anwesenheitsprojekt – Startdatum",
+      "Anwesenheitsprojekt – Enddatum",
+      "Anwesenheitsprojekt – Kostenstelle"
+    ]
+  },
+  "absence": {
+    "sheetName": "Abwesenheitszeiträume seit Apri",
+    "headers": [
+      "Startdatum",
+      "Enddatum",
+      "Kostenträger Nummer",
+      "Name (bevorzugt)",
+      "Vorname (bürgerlich)",
+      "Nachname (bürgerlich)",
+      "Abteilung",
+      "Abwesenheitsart",
+      "Startdatum der Abwesenheit",
+      "Enddatum der Abwesenheit",
+      "Abwesenheit – tägliche Abwesenheitsarten",
+      "Dauer der Abwesenheit – Tage innerhalb des Zeitraums",
+      "Abwesenheit – stündliche Abwesenheitsarten",
+      "Dauer der Abwesenheit – Stunden innerhalb des Zeitraums",
+      "Kommentar zum Abwesenheitszeitraum",
+      "Status des Abwesenheitszeitraums",
+      "Status Attest"
+    ]
+  }
+}
