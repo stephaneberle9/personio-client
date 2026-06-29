@@ -59,6 +59,22 @@ describe('HttpClient cursor pagination', () => {
     expect(seenAuth).toHaveLength(3);
   });
 
+  it('refuses to follow a pagination link to a foreign origin (SSRF guard)', async () => {
+    server.use(
+      http.get(`${BASE}/v2/things`, () =>
+        HttpResponse.json({
+          _data: [{ id: '1' }],
+          _meta: { links: { next: { href: 'https://evil.example.com/v2/things?cursor=p2' } } },
+        })
+      ),
+      // The foreign host must never receive a request (and never the token).
+      http.get('https://evil.example.com/v2/things', () => HttpResponse.json({ _data: [] }))
+    );
+
+    const client = makeHttp();
+    await expect(client.getAll('/v2/things')).rejects.toThrow(/foreign origin/i);
+  });
+
   it('returns a single page unchanged when there is no next link', async () => {
     server.use(
       http.get(`${BASE}/v2/things`, () => HttpResponse.json({ _data: [{ id: 'only' }] }))

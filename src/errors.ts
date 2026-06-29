@@ -27,6 +27,30 @@ export class PersonioApiError extends Error {
     this.path = options.path;
     this.details = options.details;
   }
+
+  /**
+   * Serialize without the `cause`. The raw axios cause carries the request
+   * config — including the `Authorization` bearer header and, on the auth-token
+   * request, the `client_secret` in the body — so it must never reach logs or
+   * JSON output. `toPersonioApiError` already attaches only a sanitized cause;
+   * this is defense in depth for anything that serializes the error directly.
+   */
+  toJSON(): Record<string, unknown> {
+    return { name: this.name, message: this.message, status: this.status, path: this.path };
+  }
+}
+
+/**
+ * Reduce an axios error to a credential-free cause: never the raw error (whose
+ * `config` holds the bearer header and any request body, e.g. the auth
+ * `client_secret`). Keeps only the transport code, status, and the response
+ * body (a Personio error payload, which carries no request credentials).
+ */
+function sanitizedCause(error: unknown): unknown {
+  if (axios.isAxiosError(error)) {
+    return { code: error.code, status: error.response?.status, responseData: error.response?.data };
+  }
+  return error instanceof Error ? { name: error.name, message: error.message } : undefined;
 }
 
 /**
@@ -90,13 +114,13 @@ export function toPersonioApiError(error: unknown, path?: string): PersonioApiEr
         status,
         path: requestPath,
         details: error.response?.data,
-        cause: error,
+        cause: sanitizedCause(error),
       });
     }
 
     return new PersonioApiError(
       `Personio API error${status ? ` (${status})` : ''} on ${requestPath}: ${apiMessage}`,
-      { status, path: requestPath, details: error.response?.data, cause: error }
+      { status, path: requestPath, details: error.response?.data, cause: sanitizedCause(error) }
     );
   }
 

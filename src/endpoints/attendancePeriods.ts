@@ -55,7 +55,7 @@ export class AttendancePeriodsEndpoint {
 
   /** Get a single attendance period by id (v2). */
   async get(id: string | number): Promise<{ data: AttendancePeriodV2Raw }> {
-    return this.http.get(`/v2/attendance-periods/${id}`);
+    return this.http.get(`/v2/attendance-periods/${encodeURIComponent(String(id))}`);
   }
 
   /** Create an attendance period (v2). Requires a write scope. */
@@ -68,12 +68,12 @@ export class AttendancePeriodsEndpoint {
     id: string | number,
     body: Partial<AttendancePeriodV2Request>
   ): Promise<{ data: AttendancePeriodV2Raw }> {
-    return this.http.patch(`/v2/attendance-periods/${id}`, body);
+    return this.http.patch(`/v2/attendance-periods/${encodeURIComponent(String(id))}`, body);
   }
 
   /** Delete an attendance period (v2). */
   async delete(id: string | number): Promise<unknown> {
-    return this.http.delete(`/v2/attendance-periods/${id}`);
+    return this.http.delete(`/v2/attendance-periods/${encodeURIComponent(String(id))}`);
   }
 }
 
