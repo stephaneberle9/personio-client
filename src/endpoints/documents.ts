@@ -37,12 +37,13 @@ export class DocumentsEndpoint {
 
   /** Download a document as a Buffer. */
   async download(documentId: string): Promise<Buffer> {
-    return this.http.getBinary(`/v2/document-management/documents/${documentId}/download`);
+    const id = encodeURIComponent(documentId);
+    return this.http.getBinary(`/v2/document-management/documents/${id}/download`);
   }
 
   /** Delete a document. Returns 204 No Content on success. */
   async delete(documentId: string): Promise<void> {
-    await this.http.delete(`/v2/document-management/documents/${documentId}`);
+    await this.http.delete(`/v2/document-management/documents/${encodeURIComponent(documentId)}`);
   }
 
   /** Flatten a v2 document for display. */

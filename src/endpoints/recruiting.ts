@@ -45,13 +45,15 @@ export class RecruitingEndpoint {
 
   /** Get a single recruiting application. */
   async application(id: string): Promise<RecruitingApplication> {
-    return this.getOne<RecruitingApplication>(`/v2/recruiting/applications/${id}`);
+    return this.getOne<RecruitingApplication>(
+      `/v2/recruiting/applications/${encodeURIComponent(id)}`
+    );
   }
 
   /** Stage transitions for an application (auto-paginated). */
   async stageTransitions(applicationId: string): Promise<RecruitingStageTransition[]> {
     return this.listAll<RecruitingStageTransition>(
-      `/v2/recruiting/applications/${applicationId}/stage-transitions`
+      `/v2/recruiting/applications/${encodeURIComponent(applicationId)}/stage-transitions`
     );
   }
 
@@ -64,7 +66,7 @@ export class RecruitingEndpoint {
 
   /** Get a single recruiting candidate. */
   async candidate(id: string): Promise<RecruitingCandidate> {
-    return this.getOne<RecruitingCandidate>(`/v2/recruiting/candidates/${id}`);
+    return this.getOne<RecruitingCandidate>(`/v2/recruiting/candidates/${encodeURIComponent(id)}`);
   }
 
   /** List recruiting jobs (auto-paginated). */
@@ -74,7 +76,7 @@ export class RecruitingEndpoint {
 
   /** Get a single recruiting job. */
   async job(id: string): Promise<RecruitingJob> {
-    return this.getOne<RecruitingJob>(`/v2/recruiting/jobs/${id}`);
+    return this.getOne<RecruitingJob>(`/v2/recruiting/jobs/${encodeURIComponent(id)}`);
   }
 
   /** List recruiting categories (auto-paginated). */

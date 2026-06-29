@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance } from 'axios';
 import { OAuthClient } from '../auth/oauth-client.js';
-import { toPersonioApiError } from '../errors.js';
+import { PersonioApiError, toPersonioApiError } from '../errors.js';
 import { withRetry } from './retry.js';
 import { normalizePage, type Page } from './paginate.js';
 
@@ -168,8 +168,19 @@ export class HttpClient {
     let page: Page<T> = normalizePage<T>(await this.get(path, params, opts));
     all.push(...page.data);
 
+    const baseOrigin = new URL(this.options.baseUrl).origin;
     for (let guard = 0; page.nextHref && guard < 10_000; guard++) {
-      page = normalizePage<T>(await this.getUrl(page.nextHref, opts?.headers));
+      // Never follow a pagination link to a foreign origin: the request carries
+      // the bearer token, so a tampered `next` href would leak it (SSRF). Only
+      // same-origin links (the API's own cursor) are honored.
+      const next = new URL(page.nextHref, this.options.baseUrl);
+      if (next.origin !== baseOrigin) {
+        throw new PersonioApiError(
+          `Refusing to follow pagination link to a foreign origin (${next.origin})`,
+          { path }
+        );
+      }
+      page = normalizePage<T>(await this.getUrl(next.toString(), opts?.headers));
       all.push(...page.data);
     }
     return all;
