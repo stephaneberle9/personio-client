@@ -1,0 +1,56 @@
+{
+  "name": "@stephaneberle9/personio-client",
+  "version": "0.1.0",
+  "description": "Typed TypeScript client for the Personio v2 API — OAuth2, cursor pagination, and high-level services that normalize attendance and absence data.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Stephan Eberle",
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "personio",
+    "api",
+    "v2",
+    "oauth2",
+    "attendance",
+    "absence",
+    "typescript",
+    "client"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "example:xlsx": "tsx examples/export-xlsx.ts",
+    "example:snapshot": "tsx examples/generate-snapshot.ts"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "dotenv": "^16.4.7",
+    "msw": "^2.7.0",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.2",
+    "xlsx": "^0.18.5"
+  }
+}

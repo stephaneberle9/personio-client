@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Secrets — never commit credentials
+.env
+.env.*
+!.env.example
+
+# Local data and generated artifacts
+/data/
+*.snapshot.json
+snapshot.json
+out/
+*.xlsx
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.log
