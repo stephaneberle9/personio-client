@@ -105,21 +105,28 @@ const periods = await client.attendancePeriods.list({
   attributionDateLte: '2026-06-30',
   status: 'CONFIRMED',
 });
-const projects = await client.projects.list({ includes: ['tracked_minutes'] });
+// `tracked_minutes` is returned inline on each project; do not pass `includes`
+// (the v2 `/v2/projects` endpoint rejects it with 400).
+const projects = await client.projects.list();
 ```
 
 ### Account-specific fields
 
 Personio surfaces some values (personnel number, customer, cost center,
-billable, certificate status) under account-specific keys. Override the
-resolver candidates instead of forking:
+billable, certificate status) under account-specific keys. The defaults are
+already tuned to a verified account (see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)):
+the personnel number is read from the `custom_attributes[]` array by its opaque
+id, the customer from the project's `client_name`, and the cost-center name is
+joined from `/v2/cost-centers`. Override the resolver candidates per account
+instead of forking:
 
 ```ts
 new ApiSource(client, {
   fields: {
-    personnelNumberFields: ['kostentraeger_nummer'],
-    customerFields: ['kunde_name'],
-    costCenterFields: ['kostenstelle'],
+    // Your account's personnel-number custom-field id (see OPEN_QUESTIONS.md).
+    personnelNumberFields: ['dynamic_6322ffb59ab387.97097504'],
+    customerFields: ['client_name'],
+    costCenterFields: ['cost_center'],
   },
 });
 ```

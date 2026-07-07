@@ -8,17 +8,23 @@ import { toDashboardRecord } from '../examples/lib/dashboard.js';
 
 const BASE = 'https://api.personio.test';
 
+// Real v2 person shape: the personnel number ("Kostenträger Nummer") is a
+// custom attribute in `custom_attributes[]`, keyed by an opaque id, not a flat
+// `personnel_number` field.
 const persons = [
   {
     id: 'p1',
     first_name: 'Anna',
     last_name: 'Schmidt',
     preferred_name: 'Anna S.',
-    personnel_number: '71181',
-    department: 'Engineering',
+    custom_attributes: [
+      { global_id: '5877899', id: 'dynamic_6322ffb59ab387.97097504', type: 'int', value: 71181 },
+    ],
   },
 ];
 
+// Real v2 project shape (verified against a live account): `project_code`,
+// `client_name`, a `cost_center: { id }` reference, and `{ date }` wrappers.
 const projects = [
   {
     id: 'prj0',
@@ -27,15 +33,18 @@ const projects = [
   {
     id: 'prj1',
     name: 'Website Relaunch',
-    code: '25243-1',
+    project_code: '25243-1',
     parent_project: { id: 'prj0' },
-    start_date: '2026-01-01',
-    end_date: '2026-12-31',
-    customer: 'Acme',
-    cost_center: '50101 Alten GmbH',
+    start: { date: '2026-01-01' },
+    end: { date: '2026-12-31' },
+    client_name: 'Acme',
+    cost_center: { id: 'cc1' },
     billable: true,
   },
 ];
+
+// /v2/cost-centers maps the project's cost_center id to its display name.
+const costCenters = [{ id: 'cc1', name: '50101 Alten GmbH' }];
 
 const periods = [
   // Two WORK periods, same person+date+project → summed.
@@ -72,7 +81,8 @@ const server = setupServer(
   ),
   http.get(`${BASE}/v2/attendance-periods`, () => HttpResponse.json({ _data: periods })),
   http.get(`${BASE}/v2/projects`, () => HttpResponse.json({ _data: projects })),
-  http.get(`${BASE}/v2/persons`, () => HttpResponse.json({ _data: persons }))
+  http.get(`${BASE}/v2/persons`, () => HttpResponse.json({ _data: persons })),
+  http.get(`${BASE}/v2/cost-centers`, () => HttpResponse.json({ _data: costCenters }))
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -99,9 +109,11 @@ describe('ApiSource attendance mapping', () => {
       firstName: 'Anna',
       customer: 'Acme',
       costCenter: '50101 Alten GmbH',
-      project: 'Website Relaunch',
+      // The booked project (prj1) is a sub-project; the report shows its
+      // top-level ancestor (prj0) as the main project and prj1 as the sub.
+      project: 'Parent Program',
       projectCode: '25243-1',
-      subProject: 'Parent Program',
+      subProject: 'Website Relaunch',
       billable: true,
       projectStart: '2026-01-01',
       projectEnd: '2026-12-31',
@@ -121,8 +133,8 @@ describe('ApiSource attendance mapping', () => {
       ma: 'Schmidt, Anna',
       kunde: 'Acme',
       kst: '50101 Alten GmbH',
-      projekt: 'Website Relaunch',
-      up: 'Parent Program',
+      projekt: 'Parent Program',
+      up: 'Website Relaunch',
       std: 7.5,
       kommentar: 'Did stuff',
       startdatum: '2026-01-01',

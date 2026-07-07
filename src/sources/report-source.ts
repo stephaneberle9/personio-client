@@ -40,8 +40,10 @@ const DEFAULT_ATTENDANCE_COLUMNS: Partial<Record<keyof AttendanceRecord, string[
   hours: ['anwesenheitsstunden', 'hours', 'stunden'],
   comment: ['kommentar', 'comment'],
   billable: ['abrechenbar', 'billable'],
-  projectStart: ['startdatum', 'start date'],
-  projectEnd: ['enddatum', 'end date'],
+  // Must be specific: a plain `startdatum`/`enddatum` also matches the leading
+  // "Startdatum"/"Enddatum" query-range columns present in the report.
+  projectStart: ['anwesenheitsprojekt startdatum', 'projekt startdatum', 'project start date'],
+  projectEnd: ['anwesenheitsprojekt enddatum', 'projekt enddatum', 'project end date'],
 };
 
 const DEFAULT_ABSENCE_COLUMNS: Partial<Record<keyof AbsenceRecord, string[]>> = {

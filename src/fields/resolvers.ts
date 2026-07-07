@@ -68,10 +68,22 @@ export interface FieldResolverConfig {
 // target account and override via the client config where they differ
 // (see OPEN_QUESTIONS.md).
 export const DEFAULT_FIELD_RESOLVER_CONFIG: FieldResolverConfig = {
-  personnelNumberFields: ['personnel_number', 'kostentraeger_nummer', 'employee_number', 'staff_number'],
+  // The personnel number ("Kostenträger Nummer") is a *custom* attribute on
+  // `/v2/persons` with no human label — only an opaque id. The first candidate
+  // is the confirmed id for the itemis account (verified against a live run);
+  // override it per account if your custom field id differs.
+  personnelNumberFields: [
+    'dynamic_6322ffb59ab387.97097504',
+    'personnel_number',
+    'kostentraeger_nummer',
+    'employee_number',
+    'staff_number',
+  ],
   departmentFields: ['department', 'abteilung'],
   preferredNameFields: ['preferred_name', 'display_name', 'name_bevorzugt'],
-  customerFields: ['customer', 'kunde', 'customer_name', 'kunde_name'],
+  // `client_name` is the verified v2 project key for the customer; the rest are
+  // generic/legacy fallbacks.
+  customerFields: ['client_name', 'customer', 'kunde', 'customer_name', 'kunde_name', 'client'],
   costCenterFields: ['cost_center', 'kostenstelle', 'cost_centers'],
   billableFields: ['billable', 'abrechenbar', 'is_billable'],
   certificateStatusFields: ['certificate_status', 'status_attest', 'attest'],
@@ -120,6 +132,26 @@ export function resolveField(
 ): string | number | boolean | undefined {
   if (!raw) return undefined;
   const wanted = new Set(candidates.map((c) => slugifyLabel(c)));
+
+  // v2 persons expose custom fields as an array — `custom_attributes: [{ id,
+  // value, label?, type? }]` — not as `dynamic_<id>` object keys. There is no
+  // human label on these entries, so match by the (slugified) attribute id
+  // (what an account-specific `dynamic_<...>` override targets), or by an
+  // explicit dynamicFieldMap/label entry when present.
+  const customAttributes = (raw as any).custom_attributes;
+  if (Array.isArray(customAttributes)) {
+    for (const attr of customAttributes) {
+      if (!attr || typeof attr !== 'object') continue;
+      const id = (attr as any).id;
+      const label = (attr as any).label;
+      const mapped = typeof id === 'string' ? dynamicFieldMap[id] : undefined;
+      const slugs = [slugifyLabel(mapped), slugifyLabel(label), slugifyLabel(id)].filter(Boolean);
+      if (slugs.some((s) => wanted.has(s))) {
+        const scalar = scalarOf('value' in attr ? (attr as any).value : attr);
+        if (scalar !== undefined && scalar !== '') return scalar;
+      }
+    }
+  }
 
   const buckets: Array<Record<string, any>> = [raw];
   if (raw.attributes && typeof raw.attributes === 'object') buckets.push(raw.attributes);

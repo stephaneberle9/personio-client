@@ -73,13 +73,36 @@ export type AbsenceType = z.infer<typeof absenceTypeSchema>;
 
 // ---- Projects (GET /v2/projects) ----------------------------------------
 
+const dateWrapper = z
+  .object({ date: z.string().nullable().optional() })
+  .passthrough();
+
 export const projectSchema = z
   .object({
     id: z.string(),
     name: z.string().nullable().optional(),
-    code: z.string().nullable().optional(),
+    /** Verified v2 key for the project code (the earlier `code` guess was wrong). */
+    project_code: z.string().nullable().optional(),
+    /** Customer/client on the project ("Anwesenheit Projekt Kunde Name"). */
+    client_name: z.string().nullable().optional(),
+    /** Billable flag — a real boolean in v2 (rendered as Ja/Nein in the report). */
+    billable: z.boolean().nullable().optional(),
+    /**
+     * Cost center. v2 returns a `{ id }` reference (resolve the display name via
+     * `/v2/cost-centers`); a flat string is also tolerated for other tenants.
+     */
+    cost_center: z
+      .union([z.string(), z.object({ id: z.string() }).passthrough()])
+      .nullable()
+      .optional(),
     parent_project: idRef.nullable().optional(),
     status: z.string().nullable().optional(),
+    /** Project start/end as `{ date }` wrappers in v2. */
+    start: dateWrapper.nullable().optional(),
+    end: dateWrapper.nullable().optional(),
+    // Legacy/flat aliases kept optional so recorded fixtures and tenants that
+    // expose flat fields still resolve (passthrough would retain them anyway).
+    code: z.string().nullable().optional(),
     start_date: z.string().nullable().optional(),
     end_date: z.string().nullable().optional(),
   })

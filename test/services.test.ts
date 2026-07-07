@@ -51,6 +51,44 @@ describe('PersonService', () => {
       personnelNumber: '71181',
     });
   });
+
+  it('resolves the personnel number from the v2 custom_attributes array', async () => {
+    server.use(
+      http.get(`${BASE}/v2/persons`, () =>
+        HttpResponse.json({
+          _data: [
+            {
+              id: 'p1',
+              first_name: 'Anna',
+              last_name: 'Schmidt',
+              email: 'anna@example.com',
+              // Real /v2/persons shape: custom fields arrive as an array keyed
+              // by opaque id, with no human label — matched by id slug.
+              custom_attributes: [
+                { global_id: '99297', id: 'city', type: 'string', value: 'Essen' },
+                {
+                  global_id: '5877899',
+                  id: 'dynamic_6322ffb59ab387.97097504',
+                  type: 'int',
+                  value: 71181,
+                },
+              ],
+            },
+          ],
+        })
+      )
+    );
+
+    const records = await new PersonService(makeClient()).getRecords();
+    expect(records[0]).toMatchObject({
+      firstName: 'Anna',
+      lastName: 'Schmidt',
+      personnelNumber: '71181',
+      // Department is not on /v2/persons (it lives on the employment's org
+      // units, id-only), so it resolves to empty here.
+      department: '',
+    });
+  });
 });
 
 describe('RecruitingService', () => {
