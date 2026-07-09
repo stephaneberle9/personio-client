@@ -78,16 +78,21 @@ function scopeForPath(path: string | undefined): string | undefined {
 
 /**
  * Extract a human-readable message from a Personio error payload without
- * leaking secrets. Personio uses several shapes across API generations.
+ * leaking secrets. Personio uses several shapes across API generations,
+ * including a JSON:API-style `{ errors: [{ title, detail }] }` envelope
+ * (confirmed on `/v2/reports`).
  */
 function extractApiMessage(data: unknown): string | undefined {
   if (!data || typeof data !== 'object') return typeof data === 'string' ? data : undefined;
   const d = data as Record<string, any>;
+  const firstError = Array.isArray(d.errors) ? d.errors[0] : undefined;
   return (
     d.error?.message ??
     (typeof d.error === 'string' ? d.error : undefined) ??
     d.message ??
     d.detail ??
+    firstError?.detail ??
+    firstError?.title ??
     undefined
   );
 }

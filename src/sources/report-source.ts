@@ -26,42 +26,61 @@ export interface ReportSourceOptions {
   filterByRange?: boolean;
 }
 
-// VERIFY: default report column labels against the configured Custom Report.
+// Candidates are tried as an exact column *id* match first (Personio's Reporting
+// v2 attribute names, e.g. `attendance_hours_tracked`, confirmed live 2026-07-09 —
+// see OPEN_QUESTIONS.md), then as a substring of the (slugified) column *label*,
+// covering both the English Reporting v2 labels and German UI/export labels a
+// differently-configured account might show instead.
 const DEFAULT_ATTENDANCE_COLUMNS: Partial<Record<keyof AttendanceRecord, string[]>> = {
   personnelNumber: ['kostentraeger nummer', 'personnel number', 'personalnummer'],
-  lastName: ['nachname', 'last name'],
-  firstName: ['vorname', 'first name'],
-  customer: ['kunde', 'customer'],
-  costCenter: ['kostenstelle', 'cost center'],
-  project: ['anwesenheitsprojekt', 'project'],
-  projectCode: ['code'],
-  subProject: ['unterprojekt', 'sub project', 'subproject'],
-  date: ['anwesenheitsdatum', 'date'],
-  hours: ['anwesenheitsstunden', 'hours', 'stunden'],
-  comment: ['kommentar', 'comment'],
-  billable: ['abrechenbar', 'billable'],
+  lastName: ['last_name', 'nachname', 'last name'],
+  firstName: ['first_name', 'vorname', 'first name'],
+  customer: ['attendance_project_client_name', 'kunde', 'customer', 'client name'],
+  // Two distinct Personio attributes surface as "cost center" depending on report
+  // config: the project's cost center (preferred — matches ApiSource) and the
+  // person's. Both observed live; project-level is listed first.
+  costCenter: ['attendance_project_cost_center', 'cost_centers', 'kostenstelle', 'cost center'],
+  project: ['attendance_project', 'anwesenheitsprojekt', 'project'],
+  projectCode: ['attendance_project_code', 'code'],
+  subProject: ['attendance_subproject', 'unterprojekt', 'sub project', 'subproject'],
+  date: ['attendance_date', 'anwesenheitsdatum', 'date'],
+  hours: ['attendance_hours_tracked', 'anwesenheitsstunden', 'hours', 'stunden'],
+  comment: ['attendance_comment', 'kommentar', 'comment'],
+  billable: ['attendance_project_billable', 'abrechenbar', 'billable'],
   // Must be specific: a plain `startdatum`/`enddatum` also matches the leading
   // "Startdatum"/"Enddatum" query-range columns present in the report.
-  projectStart: ['anwesenheitsprojekt startdatum', 'projekt startdatum', 'project start date'],
-  projectEnd: ['anwesenheitsprojekt enddatum', 'projekt enddatum', 'project end date'],
+  projectStart: [
+    'attendance_project_start_date',
+    'anwesenheitsprojekt startdatum',
+    'projekt startdatum',
+    'project start date',
+  ],
+  projectEnd: [
+    'attendance_project_end_date',
+    'anwesenheitsprojekt enddatum',
+    'projekt enddatum',
+    'project end date',
+  ],
 };
 
 const DEFAULT_ABSENCE_COLUMNS: Partial<Record<keyof AbsenceRecord, string[]>> = {
   personnelNumber: ['kostentraeger nummer', 'personnel number'],
-  preferredName: ['name bevorzugt', 'preferred name', 'name'],
-  firstName: ['vorname', 'first name'],
-  lastName: ['nachname', 'last name'],
-  department: ['abteilung', 'department'],
-  absenceType: ['abwesenheitsart', 'absence type'],
-  startDate: ['startdatum der abwesenheit', 'start date'],
-  endDate: ['enddatum der abwesenheit', 'end date'],
-  dailyAmount: ['taegliche', 'daily'],
-  durationDays: ['tage', 'days'],
-  hourlyAmount: ['stuendliche', 'hourly'],
-  durationHours: ['stunden', 'hours'],
-  comment: ['kommentar', 'comment'],
-  status: ['status des abwesenheitszeitraums', 'status'],
-  certificateStatus: ['status attest', 'certificate'],
+  preferredName: ['preferred_name', 'name bevorzugt', 'preferred name', 'name'],
+  firstName: ['first_name', 'vorname', 'first name'],
+  lastName: ['last_name', 'nachname', 'last name'],
+  department: ['department_id', 'abteilung', 'department'],
+  absenceType: ['absence_type', 'abwesenheitsart', 'absence type', 'time off type'],
+  startDate: ['absence_period_start', 'startdatum der abwesenheit', 'start date'],
+  endDate: ['absence_period_end', 'enddatum der abwesenheit', 'end date'],
+  // "…inside timeframe" is the duration clipped to the query range; the plain
+  // "Time off - <unit> time off types" column is the absence period's raw amount.
+  dailyAmount: ['absence_period_days', 'taegliche', 'daily'],
+  durationDays: ['absence_period_days_inside_timerange', 'tage', 'days'],
+  hourlyAmount: ['absence_period_hours', 'stuendliche', 'hourly'],
+  durationHours: ['absence_period_hours_inside_timerange', 'stunden', 'hours'],
+  comment: ['absence_period_comment', 'kommentar', 'comment'],
+  status: ['absence_period_status', 'status des abwesenheitszeitraums', 'status'],
+  certificateStatus: ['absence_period_certificate_status', 'status attest', 'certificate'],
 };
 
 /** Resolves report columns by fuzzy label matching and reads typed cell values. */
@@ -72,8 +91,17 @@ class ColumnResolver {
     this.slugByColumnId = new Map(columns.map((c) => [c.id, slugifyLabel(c.label)]));
   }
 
-  /** First column id whose slugified label contains any candidate slug. */
+  /**
+   * First column whose id exactly matches a candidate (Personio's own Reporting
+   * v2 attribute name, e.g. `attendance_hours_tracked` — the more reliable
+   * signal), else the first column whose slugified label contains any
+   * candidate slug (for custom/`dynamic_<id>` columns with no stable id).
+   */
   findColumnId(candidates: string[]): string | undefined {
+    const wantedIds = new Set(candidates.map((c) => c.toLowerCase()));
+    const byId = this.columns.find((c) => wantedIds.has(c.id.toLowerCase()));
+    if (byId) return byId.id;
+
     const wanted = candidates.map((c) => slugifyLabel(c)).filter(Boolean);
     for (const column of this.columns) {
       const slug = this.slugByColumnId.get(column.id) ?? '';
@@ -89,9 +117,14 @@ class ColumnResolver {
   }
 
   number(row: Record<string, unknown>, columnId: string | undefined): number {
+    if (!columnId) return 0;
+    const value = row[columnId];
+    // Reporting v2 numeric cells are already plain JS numbers (normalizeReport
+    // unwraps `numeric_value.number`) — parse-as-German-decimal only applies to
+    // string-shaped values, else e.g. `3.5` gets mangled into `35`.
+    if (typeof value === 'number') return value;
     const raw = this.string(row, columnId);
     if (!raw) return 0;
-    // Accept German decimal commas.
     const n = Number(raw.replace(/\./g, '').replace(',', '.'));
     return Number.isFinite(n) ? n : Number(raw) || 0;
   }
