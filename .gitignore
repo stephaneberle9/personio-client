@@ -21,3 +21,6 @@ out/
 .idea/
 .vscode/
 *.log
+
+# Local verification notes — account-specific findings, not for version control
+OPEN_QUESTIONS.md
