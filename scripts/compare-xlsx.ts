@@ -43,6 +43,12 @@ import * as XLSX from 'xlsx';
 
 type Cell = string | number | boolean | Date | null;
 
+// Non-breaking space (U+00A0): Personio report headers contain it before the
+// dash (e.g. in "Anwesenheitsprojekt - Code" the space before "-" is U+00A0).
+// Declared before the CLI parsing below because --ignore normalizes its header
+// names through normHeader(), which reads it.
+const NBSP_RE = new RegExp(String.fromCharCode(0xa0), 'g');
+
 // ---------- CLI ----------
 
 const rawArgs = process.argv.slice(2);
@@ -79,10 +85,6 @@ const EPS = 1e-9;
 // guarantees the separator never occurs inside a cell value. Built via
 // fromCharCode so the source file stays free of invisible characters.
 const KEY_SEP = String.fromCharCode(0x01);
-
-// Non-breaking space (U+00A0): Personio report headers contain it before the
-// dash (e.g. in "Anwesenheitsprojekt - Code" the space before "-" is U+00A0).
-const NBSP_RE = new RegExp(String.fromCharCode(0xa0), 'g');
 
 // ---------- date handling ----------
 
