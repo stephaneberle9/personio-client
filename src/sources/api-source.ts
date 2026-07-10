@@ -10,6 +10,7 @@ import {
   type FieldResolverConfig,
 } from '../fields/resolvers.js';
 import { durationHours, round2 } from '../domain/hours.js';
+import { mapStatusLabel } from '../domain/status-labels.js';
 import type { AbsenceSource, AttendanceSource, DateRange } from './types.js';
 
 export interface ApiSourceOptions {
@@ -115,7 +116,7 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
 
   /** Map a raw status enum through the configured labels, else pass it through. */
   private mapStatus(status: string): string {
-    return this.statusLabels[status] ?? status;
+    return mapStatusLabel(status, this.statusLabels);
   }
 
   async getAttendance(range: DateRange): Promise<AttendanceRecord[]> {

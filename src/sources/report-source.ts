@@ -4,6 +4,7 @@ import type { AbsenceRecord } from '../model/absence-record.js';
 import type { ReportColumn, ReportData } from '../endpoints/reports.js';
 import { slugifyLabel } from '../fields/resolvers.js';
 import { round2 } from '../domain/hours.js';
+import { mapStatusLabel } from '../domain/status-labels.js';
 import type { AbsenceSource, AttendanceSource, DateRange } from './types.js';
 
 /**
@@ -24,6 +25,17 @@ export interface ReportSourceOptions {
   absenceColumns?: Partial<Record<keyof AbsenceRecord, string[]>>;
   /** When true, filter report rows to the requested date range. */
   filterByRange?: boolean;
+  /**
+   * Optional remapping for the absence status cell, mirroring
+   * {@link ApiSourceOptions.statusLabels}. The Reporting-v2 read returns
+   * title-case **English** option labels (`"Approved"`, `"Pending"`) where the
+   * API source carries raw enums (`"APPROVED"`); both are normalized to the same
+   * enum key before lookup, so one map (e.g. `{ APPROVED: 'Genehmigt' }`)
+   * localizes both sources identically. Values without an entry pass through
+   * unchanged. When omitted, the raw report label is kept (byte-for-byte
+   * identical). Supply the map from the consumer (see `examples/export-xlsx.ts`).
+   */
+  statusLabels?: Record<string, string>;
 }
 
 // Candidates are tried as an exact column *id* match first (Personio's Reporting
@@ -139,6 +151,7 @@ class ColumnResolver {
 export class ReportSource implements AttendanceSource, AbsenceSource {
   private readonly attendanceColumns: Partial<Record<keyof AttendanceRecord, string[]>>;
   private readonly absenceColumns: Partial<Record<keyof AbsenceRecord, string[]>>;
+  private readonly statusLabels: Record<string, string>;
 
   constructor(
     private readonly client: PersonioClient,
@@ -146,6 +159,7 @@ export class ReportSource implements AttendanceSource, AbsenceSource {
   ) {
     this.attendanceColumns = { ...DEFAULT_ATTENDANCE_COLUMNS, ...options.attendanceColumns };
     this.absenceColumns = { ...DEFAULT_ABSENCE_COLUMNS, ...options.absenceColumns };
+    this.statusLabels = options.statusLabels ?? {};
   }
 
   async getAttendance(range: DateRange): Promise<AttendanceRecord[]> {
@@ -196,7 +210,7 @@ export class ReportSource implements AttendanceSource, AbsenceSource {
       hourlyAmount: emptyToNullNumber(cols, row, id.hourlyAmount),
       durationHours: emptyToNullNumber(cols, row, id.durationHours),
       comment: cols.string(row, id.comment),
-      status: cols.string(row, id.status),
+      status: mapStatusLabel(cols.string(row, id.status), this.statusLabels),
       certificateStatus: cols.string(row, id.certificateStatus),
     }));
 

@@ -48,9 +48,11 @@ type ExportType = 'attendance' | 'absence' | 'both';
  * German localization for the raw v2 status enums, matching the labels the
  * legacy Custom Report Excel export shows in the "Status des
  * Abwesenheitszeitraums" column. This is an output format, not library logic —
- * it lives in the example and is passed to the API source via `statusLabels`
- * so the API-sourced export reaches 1:1 parity with the reference report. Enum
- * values without an entry pass through unchanged.
+ * it lives in the example and is passed to both sources via `statusLabels` so
+ * the export reaches 1:1 parity with the reference report regardless of source
+ * (the API source carries raw enums, the Reporting-v2 read carries English
+ * labels — both normalize to the same key). Values without an entry pass
+ * through unchanged.
  */
 const STATUS_LABELS_DE: Record<string, string> = {
   APPROVED: 'Genehmigt',
@@ -81,13 +83,17 @@ async function main(): Promise<void> {
   const source = createSource(client, {
     kind,
     api: {
-      // Localize the raw v2 status enums to the German report labels. Only the
-      // API source needs this; ReportSource cells already carry the localized
-      // label.
+      // Localize the raw v2 status enums to the German report labels so the
+      // API-sourced export matches the reference report.
       statusLabels: STATUS_LABELS_DE,
       fetchAbsenceBreakdowns,
     },
-    report: reportId ? { reportId, filterByRange: true } : undefined,
+    // The Reporting-v2 read returns English option labels ("Approved") for the
+    // absence status, so localize it the same way — one map serves both sources
+    // (normalized to the enum key before lookup).
+    report: reportId
+      ? { reportId, filterByRange: true, statusLabels: STATUS_LABELS_DE }
+      : undefined,
   });
 
   mkdirSync(outDir, { recursive: true });
