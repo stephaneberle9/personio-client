@@ -20,10 +20,23 @@ export const clientConfigSchema = z.object({
   scopes: z.array(z.string()).optional(),
   /** Per-request timeout in milliseconds. */
   timeoutMs: z.number().int().positive().default(30_000),
-  /** Maximum retry attempts on HTTP 429 (rate limit). */
+  /**
+   * Maximum retry attempts on transient failures: HTTP 429 (rate limit), and
+   * 5xx / network errors on idempotent requests.
+   */
   maxRetries: z.number().int().min(0).default(3),
-  /** Base backoff in milliseconds for 429 retries (exponential). */
+  /** Base backoff in milliseconds for retries (exponential). */
   retryBaseMs: z.number().int().positive().default(500),
+  /**
+   * Steady-state *floor* (ms) for the per-endpoint request throttle. The
+   * client-side limiter already paces each endpoint to the token-bucket refill
+   * rate it reports via `x-ratelimit-*` headers (so callers don't need to guess
+   * a rate); this floor only caps it *slower*, to at most `1000 /
+   * minRequestIntervalMs` requests per second. `0` (the default) imposes no
+   * floor — the limiter self-paces from the headers. Set a positive value only
+   * to throttle more conservatively than the server requires.
+   */
+  minRequestIntervalMs: z.number().int().min(0).default(0),
 });
 
 export type ClientConfig = z.input<typeof clientConfigSchema>;
@@ -42,10 +55,18 @@ export function configFromEnv(
     ? env.PERSONIO_SCOPES.trim().split(/\s+/)
     : undefined;
 
+  // The limiter paces each endpoint from the rate-limit headers Personio
+  // returns, so no floor is needed by default. Allow one via env to throttle
+  // more conservatively than the server requires.
+  const rawInterval = env.PERSONIO_MIN_REQUEST_INTERVAL_MS?.trim();
+  const minRequestIntervalMs =
+    rawInterval && Number.isFinite(Number(rawInterval)) ? Number(rawInterval) : undefined;
+
   return clientConfigSchema.parse({
     clientId: env.PERSONIO_CLIENT_ID ?? '',
     clientSecret: env.PERSONIO_CLIENT_SECRET ?? '',
     baseUrl: env.PERSONIO_BASE_URL || undefined,
     scopes,
+    minRequestIntervalMs,
   });
 }

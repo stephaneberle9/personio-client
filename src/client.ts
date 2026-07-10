@@ -13,8 +13,9 @@ import { RecruitingEndpoint } from './endpoints/recruiting.js';
 
 /**
  * Typed client for the Personio v2 API. Owns the OAuth2 token lifecycle and the
- * shared axios layer (auth interceptor, cursor pagination, 429 retry) and
- * exposes one low-level endpoint object per resource.
+ * shared axios layer (auth interceptor, cursor pagination, per-endpoint rate
+ * limiting, transient-error retry) and exposes one low-level endpoint object per
+ * resource.
  *
  * High-level, normalized records come from the domain services
  * (`AttendanceService` / `AbsenceService`), which consume this client.
@@ -54,6 +55,7 @@ export class PersonioClient {
       auth: this.auth,
       maxRetries: this.config.maxRetries,
       retryBaseMs: this.config.retryBaseMs,
+      minRequestIntervalMs: this.config.minRequestIntervalMs,
     });
 
     this.attendancePeriods = new AttendancePeriodsEndpoint(this.http);

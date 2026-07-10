@@ -3,8 +3,10 @@
 > Typed TypeScript client for the Personio v2 API — OAuth2, cursor pagination, and high-level services that normalize attendance and absence data. MIT.
 
 A small, dependency-light **general client for the Personio v2 API**. It handles
-OAuth2 client-credentials auth (with token caching), cursor pagination, and 429
-retry/backoff, and exposes one typed endpoint group per resource —
+OAuth2 client-credentials auth (with token caching), cursor pagination, transient
+retry/backoff (429 plus 5xx / network errors on idempotent requests), a
+per-endpoint request throttle seeded from Personio's rate-limit headers, and
+exposes one typed endpoint group per resource —
 attendance periods, absence periods, absence types, projects, persons, cost
 centers, custom reports, document management, and recruiting.
 
@@ -72,6 +74,17 @@ npm install @stephaneberle9/personio-client
    cp .env.example .env
    # then fill in PERSONIO_CLIENT_ID / PERSONIO_CLIENT_SECRET
    ```
+
+   Heavy exports (wide date ranges, or absence with `--absence-breakdowns`) do a
+   lot of pagination and per-record N+1 calls. The client throttles itself
+   automatically: Personio reports its token-bucket state on every response
+   (`x-ratelimit-*`), and the client paces requests to the endpoint's refill rate
+   so it stays under the limit without any configuration. (Where those headers
+   are absent it falls back to reacting to 429s.) Note the limits are
+   **per-endpoint** — e.g. `/v2/absence-periods/{id}/breakdowns` is ~10 req/s — so
+   a large absence export with breakdowns is inherently paced at that rate. Set
+   `PERSONIO_MIN_REQUEST_INTERVAL_MS` only to impose a steady-state floor (slow
+   things down further); the default of `0` lets it self-pace.
 
 > [!IMPORTANT]
 > **Personio blocks browser calls via CORS** and warns against putting the
