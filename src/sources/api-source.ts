@@ -287,7 +287,7 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
         department: resolveString(person, this.fields.departmentFields, dyn),
         absenceType: typeNameById.get(p.absence_type.id) ?? '',
         startDate: p.starts_from.date_time ?? '',
-        endDate: p.ends_at?.date_time ?? null,
+        endDate: inclusiveEndDate(p.ends_at?.date_time),
         // Amounts come from the per-id breakdown endpoint, fetched only when
         // `fetchAbsenceBreakdowns` is set (an opt-in N+1). Otherwise they stay
         // null. ReportSource fills these when configured instead.
@@ -384,6 +384,36 @@ function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+/** True when a `HH:MM[:SS[.fff]]` time (already `Z`-stripped) is local midnight. */
+const MIDNIGHT_RE = /^00:00(?::00(?:\.0+)?)?$/;
+
+/**
+ * Convert an absence period's `ends_at.date_time` (an **exclusive** boundary)
+ * to the **inclusive** end date the reference Custom Report shows.
+ *
+ * Personio models a day-tracked absence as a half-open interval: `ends_at` is
+ * local midnight (`T00:00:00`, no offset — dates are local per `timezone_id`) at
+ * the *start of the day after* the last absent day. Verified live against the
+ * per-day breakdown across single-day, multi-day and multi-month absences — the
+ * breakdown's last covered day is always `ends_at` minus one day (see
+ * OPEN_QUESTIONS.md). Hour-tracked absences instead carry a real time-of-day and
+ * end on the same calendar day. So:
+ *   - midnight            → the previous calendar day (`YYYY-MM-DD`), inclusive;
+ *   - non-midnight (hour) → that day's date as-is;
+ *   - null/empty          → null (open-ended absence).
+ *
+ * The result is date-granular because that is exactly what the report column
+ * carries; `durationDays`/`durationHours` are unaffected (they are summed from
+ * the breakdown's own dated entries, not derived from this boundary).
+ */
+export function inclusiveEndDate(dateTime: string | null | undefined): string | null {
+  if (!dateTime) return null;
+  const [date, rawTime] = dateTime.split('T');
+  if (!date) return null;
+  if (rawTime === undefined) return date; // already a bare date → treat as inclusive
+  return MIDNIGHT_RE.test(rawTime.replace(/Z$/, '')) ? addDays(date, -1) : date;
 }
 
 /**
