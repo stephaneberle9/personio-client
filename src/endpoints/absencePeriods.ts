@@ -1,5 +1,11 @@
 import { HttpClient, MAX_PAGE_SIZE, type QueryParams } from '../http/client.js';
-import { absencePeriodSchema, parseItem, type AbsencePeriod } from '../schemas/index.js';
+import {
+  absenceBreakdownSchema,
+  absencePeriodSchema,
+  parseItem,
+  type AbsenceBreakdown,
+  type AbsencePeriod,
+} from '../schemas/index.js';
 
 /** Filters for `GET /v2/absence-periods` (concept §4.2). */
 export interface AbsencePeriodFilters {
@@ -34,5 +40,18 @@ export class AbsencePeriodsEndpoint {
     };
     const raw = await this.http.getAll('/v2/absence-periods', params);
     return raw.map((item) => parseItem(absencePeriodSchema, item, 'absence period'));
+  }
+
+  /**
+   * List the per-day breakdown for one absence period
+   * (`GET /v2/absence-periods/{id}/breakdowns`), following pagination. Each
+   * entry carries a `date` and an `effective_duration` of `{ unit, value }`
+   * (`unit` is `DAY` or `HOUR`). The base absence period does not carry any
+   * amounts, so this is the way to derive them (see OPEN_QUESTIONS.md).
+   */
+  async breakdowns(absencePeriodId: string): Promise<AbsenceBreakdown[]> {
+    const path = `/v2/absence-periods/${encodeURIComponent(absencePeriodId)}/breakdowns`;
+    const raw = await this.http.getAll(path);
+    return raw.map((item) => parseItem(absenceBreakdownSchema, item, 'absence breakdown'));
   }
 }

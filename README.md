@@ -151,6 +151,24 @@ report cells already carry the label. See
 [`examples/export-xlsx.ts`](examples/export-xlsx.ts) for the German map wired
 into the Excel export.
 
+### Absence amounts (breakdown fetch)
+
+The base `/v2/absence-periods` object carries no amounts, so by default
+`ApiSource` leaves `dailyAmount`, `durationDays`, `hourlyAmount` and
+`durationHours` `null`. Set `fetchAbsenceBreakdowns: true` to populate them from
+the per-period breakdown endpoint (`GET /v2/absence-periods/{id}/breakdowns`):
+
+```ts
+new ApiSource(client, { fetchAbsenceBreakdowns: true });
+```
+
+When enabled, `getAbsence` issues one extra call per absence period (an N+1,
+throttled to a small concurrency limit), keeps only the breakdown entries whose
+date falls inside the queried range, and sums them per unit — `DAY` units fill
+`dailyAmount`/`durationDays`, `HOUR` units fill `hourlyAmount`/`durationHours`.
+A unit with no in-range entry stays `null`. The default (option omitted) is
+unchanged.
+
 ### Custom Report source
 
 ```ts

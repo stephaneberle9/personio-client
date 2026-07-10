@@ -57,6 +57,29 @@ export const absencePeriodSchema = z
 
 export type AbsencePeriod = z.infer<typeof absencePeriodSchema>;
 
+// ---- Absence breakdowns (GET /v2/absence-periods/{id}/breakdowns) --------
+
+/**
+ * One day's contribution to an absence period. `effective_duration.unit` is
+ * `DAY` or `HOUR` (verified live, see OPEN_QUESTIONS.md); `value` is the amount
+ * in that unit for `date`.
+ */
+export const absenceBreakdownSchema = z
+  .object({
+    date: z.string().nullable().optional(),
+    effective_duration: z
+      .object({
+        unit: z.string().nullable().optional(),
+        value: z.number().nullable().optional(),
+      })
+      .passthrough()
+      .nullable()
+      .optional(),
+  })
+  .passthrough();
+
+export type AbsenceBreakdown = z.infer<typeof absenceBreakdownSchema>;
+
 // ---- Absence types (GET /v2/absence-types) ------------------------------
 
 export const absenceTypeSchema = z

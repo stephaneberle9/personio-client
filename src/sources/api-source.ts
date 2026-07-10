@@ -28,6 +28,27 @@ export interface ApiSourceOptions {
    * so supply the map from the consumer (see `examples/export-xlsx.ts`).
    */
   statusLabels?: Record<string, string>;
+  /**
+   * Opt-in: fetch the per-period absence breakdown to populate the amount
+   * fields that the base `/v2/absence-periods` object does not carry. When
+   * enabled, `getAbsence` issues one extra
+   * `GET /v2/absence-periods/{id}/breakdowns` call per absence period (an N+1,
+   * throttled to a small concurrency limit), sums the entries that fall inside
+   * the queried range per unit, and fills `dailyAmount`/`durationDays` from
+   * `DAY` units and `hourlyAmount`/`durationHours` from `HOUR` units. Fields
+   * stay `null` when no in-range entry exists for that unit. Off by default —
+   * the default leaves all four amounts `null` (byte-for-byte identical).
+   */
+  fetchAbsenceBreakdowns?: boolean;
+}
+
+/** Small concurrency cap for the opt-in per-period breakdown fetch (N+1). */
+const ABSENCE_BREAKDOWN_CONCURRENCY = 5;
+
+/** DAY/HOUR sums derived from an absence period's in-range breakdown entries. */
+interface BreakdownSums {
+  day: number | null;
+  hour: number | null;
 }
 
 /** Build the grouping key for a work period: person + attribution date + project. */
@@ -54,6 +75,7 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
   private readonly attendanceStatus: AttendanceStatus;
   private readonly projectIncludes: string[];
   private readonly statusLabels: Record<string, string>;
+  private readonly fetchAbsenceBreakdowns: boolean;
 
   constructor(
     private readonly client: PersonioClient,
@@ -63,6 +85,7 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
     this.attendanceStatus = options.attendanceStatus ?? 'CONFIRMED';
     this.projectIncludes = options.projectIncludes ?? [];
     this.statusLabels = options.statusLabels ?? {};
+    this.fetchAbsenceBreakdowns = options.fetchAbsenceBreakdowns ?? false;
   }
 
   /** Map a raw status enum through the configured labels, else pass it through. */
@@ -206,8 +229,15 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
     const personsById = indexById(persons);
     const dyn = this.fields.dynamicFieldMap;
 
+    // Opt-in N+1: fetch each period's breakdown and sum the in-range entries per
+    // unit. When disabled, the amounts stay null (byte-for-byte identical).
+    const sumsById = this.fetchAbsenceBreakdowns
+      ? await this.loadBreakdownSums(periods, range)
+      : new Map<string, BreakdownSums>();
+
     const records = periods.map<AbsenceRecord>((p) => {
       const person = personsById.get(p.person.id);
+      const sums = sumsById.get(p.id);
       return {
         personId: p.person.id,
         personnelNumber: resolveString(person, this.fields.personnelNumberFields, dyn),
@@ -218,12 +248,13 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
         absenceType: typeNameById.get(p.absence_type.id) ?? '',
         startDate: p.starts_from.date_time ?? '',
         endDate: p.ends_at?.date_time ?? null,
-        // Amounts come from the per-id breakdown endpoint, which is not called
-        // by default (an opt-in N+1). ReportSource fills these when configured.
-        dailyAmount: null,
-        durationDays: null,
-        hourlyAmount: null,
-        durationHours: null,
+        // Amounts come from the per-id breakdown endpoint, fetched only when
+        // `fetchAbsenceBreakdowns` is set (an opt-in N+1). Otherwise they stay
+        // null. ReportSource fills these when configured instead.
+        dailyAmount: sums?.day ?? null,
+        durationDays: sums?.day ?? null,
+        hourlyAmount: sums?.hour ?? null,
+        durationHours: sums?.hour ?? null,
         comment: p.comment ?? '',
         status: this.mapStatus(p.approval?.status ?? ''),
         certificateStatus: resolveString(p, this.fields.certificateStatusFields, dyn),
@@ -235,6 +266,73 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
     );
     return records;
   }
+
+  /**
+   * Fetch each period's breakdown (throttled to {@link ABSENCE_BREAKDOWN_CONCURRENCY})
+   * and reduce it to the in-range DAY/HOUR sums, keyed by absence-period id.
+   */
+  private async loadBreakdownSums(
+    periods: { id: string }[],
+    range: DateRange
+  ): Promise<Map<string, BreakdownSums>> {
+    const entries = await mapWithConcurrency(
+      periods,
+      ABSENCE_BREAKDOWN_CONCURRENCY,
+      async (period) => {
+        const breakdowns = await this.client.absencePeriods.breakdowns(period.id);
+        return [period.id, sumBreakdowns(breakdowns, range)] as const;
+      }
+    );
+    return new Map(entries);
+  }
+}
+
+/**
+ * Sum an absence period's breakdown entries per unit, counting only entries
+ * whose date falls inside `[range.from, range.to]`. A unit with no in-range
+ * entry stays `null` (so the record field is left untouched); otherwise the
+ * summed value is rounded to two decimals to avoid float drift.
+ */
+function sumBreakdowns(
+  breakdowns: Array<{
+    date?: string | null;
+    effective_duration?: { unit?: string | null; value?: number | null } | null;
+  }>,
+  range: DateRange
+): BreakdownSums {
+  let day: number | null = null;
+  let hour: number | null = null;
+  for (const entry of breakdowns) {
+    const date = (entry.date ?? '').slice(0, 10);
+    if (date < range.from || date > range.to) continue;
+    const { unit, value } = entry.effective_duration ?? {};
+    if (typeof value !== 'number') continue;
+    if (unit === 'DAY') day = round2((day ?? 0) + value);
+    else if (unit === 'HOUR') hour = round2((hour ?? 0) + value);
+  }
+  return { day, hour };
+}
+
+/**
+ * Map `items` through `fn` with at most `limit` calls in flight, preserving
+ * input order in the result. Used to bound the opt-in per-period breakdown N+1.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker(): Promise<void> {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await fn(items[index]!);
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
 }
 
 function indexById<T extends { id: string }>(items: T[]): Map<string, T> {
