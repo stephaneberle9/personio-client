@@ -11,6 +11,10 @@
  *   --type attendance|absence|both   what to export (default: both)
  *   --source api|report      data source (default: report if PERSONIO_REPORT_ID set, else api)
  *   --out <dir>              output directory (default: .)
+ *   --absence-breakdowns <true|false>   api source only: fetch per-period
+ *                           breakdowns so the absence amount columns are
+ *                           populated (default: true, needed for report parity;
+ *                           an opt-in N+1, pass `false` to skip it)
  *
  * Credentials come from .env (PERSONIO_CLIENT_ID / PERSONIO_CLIENT_SECRET).
  */
@@ -67,12 +71,22 @@ async function main(): Promise<void> {
     report: reportId ? { reportId } : undefined,
   });
 
+  // Populate the absence amount columns from per-period breakdowns by default so
+  // the API export matches the reference report (otherwise the parity check in
+  // step 2 flags the empty quantity columns as a difference). Opt out with
+  // `--absence-breakdowns false` to skip the extra per-period calls.
+  const fetchAbsenceBreakdowns = args['absence-breakdowns'] !== 'false';
+
   const client = new PersonioClient(configFromEnv());
   const source = createSource(client, {
     kind,
-    // Localize the raw v2 status enums to the German report labels. Only the API
-    // source needs this; ReportSource cells already carry the localized label.
-    api: { statusLabels: STATUS_LABELS_DE },
+    api: {
+      // Localize the raw v2 status enums to the German report labels. Only the
+      // API source needs this; ReportSource cells already carry the localized
+      // label.
+      statusLabels: STATUS_LABELS_DE,
+      fetchAbsenceBreakdowns,
+    },
     report: reportId ? { reportId, filterByRange: true } : undefined,
   });
 
