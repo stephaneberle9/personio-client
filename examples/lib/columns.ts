@@ -64,51 +64,130 @@ export const ABSENCE_HEADERS: readonly string[] = [
   'Status Attest',
 ];
 
-/** Excel cell value, kept loose for SheetJS array-of-arrays input. */
-type Cell = string | number;
+/**
+ * Excel number format string for the date columns, taken verbatim from the
+ * reference spreadsheets (their date cells carry `dd\.mm\.yyyy`, the German
+ * `dd.mm.yyyy` with the dots escaped). Reproducing it makes Excel render our
+ * dates identically to the reference exports.
+ */
+const DATE_FORMAT = 'dd\\.mm\\.yyyy';
+
+/** Excel number format for the numeric personnel number (integer, no decimals). */
+const INTEGER_FORMAT = '0';
+
+/**
+ * Excel number format for the hour/amount columns, taken verbatim from the
+ * reference spreadsheets (their "Erfasste Anwesenheitsstunden" and absence
+ * amount cells carry `0.00` — two fixed decimals).
+ */
+const DECIMAL_FORMAT = '0.00';
+
+/**
+ * A materialized Excel cell as handed to SheetJS' `aoa_to_sheet`: a plain
+ * value, an explicit typed cell (a number carrying a display format — used for
+ * real date and numeric cells), or `null` for a *truly empty* cell (SheetJS
+ * emits no cell at all, matching the reference where blank data cells are
+ * absent rather than empty strings).
+ */
+export type Cell = string | number | null | { t: 'n'; v: number; z: string };
+
+/**
+ * Excel 1900-system serial for a calendar date, computed with UTC math so no
+ * local-timezone offset can shift the date by a day (serial 0 = 1899-12-30).
+ */
+function excelSerial(year: number, month: number, day: number): number {
+  return Math.round((Date.UTC(year, month - 1, day) - Date.UTC(1899, 11, 30)) / 86400000);
+}
+
+/**
+ * Turn an ISO date (or datetime) string into a real Excel date cell — a number
+ * (serial) tagged with the reference date format. Only the calendar date is
+ * used (any time part is ignored), matching the date-only reference cells.
+ * Empty/absent values become an empty cell; a non-ISO string is passed through
+ * unchanged as a text fallback.
+ */
+function dateCell(value: string | null | undefined): Cell {
+  if (value === null || value === undefined || value === '') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+  if (!m) return value;
+  return { t: 'n', v: excelSerial(Number(m[1]), Number(m[2]), Number(m[3])), z: DATE_FORMAT };
+}
+
+/**
+ * The record keeps the personnel number as a string; the reference exports it
+ * as a real integer cell ("Kostenträger Nummer", format `0`). Convert numeric
+ * values to a number cell, fall back to the raw string for non-numeric values,
+ * and emit an empty cell when there is none.
+ */
+function personnelNumberCell(value: string): Cell {
+  if (value.trim() === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? { t: 'n', v: n, z: INTEGER_FORMAT } : value;
+}
+
+/**
+ * A required numeric measure (e.g. recorded hours) as a number cell carrying
+ * the reference two-decimal format.
+ */
+function decimalCell(value: number): Cell {
+  return { t: 'n', v: value, z: DECIMAL_FORMAT };
+}
+
+/**
+ * Optional numeric amount: a two-decimal number cell (matching the reference
+ * `0.00` format), or an empty cell when `null`.
+ */
+function amountCell(value: number | null): Cell {
+  return value === null ? null : decimalCell(value);
+}
+
+/** Free-text cell: the string, or an empty cell when blank (matches the reference). */
+function textCell(value: string): Cell {
+  return value === '' ? null : value;
+}
 
 /** Map an {@link AttendanceRecord} to one attendance row, aligned to the headers. */
 export function attendanceRow(record: AttendanceRecord, range: DateRange): Cell[] {
   return [
-    range.from, // Startdatum (the query range, per concept §10)
-    range.to, // Enddatum
-    record.personnelNumber,
-    record.lastName,
-    record.firstName,
-    record.customer,
-    record.project,
-    record.projectCode,
-    record.subProject,
-    record.date,
-    record.hours,
-    record.comment,
-    '', // "Projektleitung alt" — legacy column, not modelled
+    dateCell(range.from), // Startdatum (the query range, per concept §10)
+    dateCell(range.to), // Enddatum
+    personnelNumberCell(record.personnelNumber),
+    textCell(record.lastName),
+    textCell(record.firstName),
+    textCell(record.customer),
+    textCell(record.project),
+    textCell(record.projectCode),
+    textCell(record.subProject),
+    dateCell(record.date), // Anwesenheitsdatum
+    decimalCell(record.hours), // Erfasste Anwesenheitsstunden (format 0.00)
+    textCell(record.comment),
+    null, // "Projektleitung alt" — legacy column, not modelled (empty cell)
     record.billable ? 'Ja' : 'Nein',
-    record.projectStart,
-    record.projectEnd,
-    record.costCenter,
+    dateCell(record.projectStart), // Anwesenheitsprojekt – Startdatum
+    dateCell(record.projectEnd), // Anwesenheitsprojekt – Enddatum
+    textCell(record.costCenter),
   ];
 }
 
 /** Map an {@link AbsenceRecord} to one absence row, aligned to the headers. */
 export function absenceRow(record: AbsenceRecord, range: DateRange): Cell[] {
   return [
-    range.from, // Startdatum (the query range)
-    range.to, // Enddatum
-    record.personnelNumber,
-    record.preferredName,
-    record.firstName,
-    record.lastName,
-    record.department,
-    record.absenceType,
-    record.startDate,
-    record.endDate ?? '',
-    record.dailyAmount ?? '',
-    record.durationDays ?? '',
-    record.hourlyAmount ?? '',
-    record.durationHours ?? '',
-    record.comment,
-    record.status,
-    record.certificateStatus,
+    dateCell(range.from), // Startdatum (the query range)
+    dateCell(range.to), // Enddatum
+    personnelNumberCell(record.personnelNumber),
+    textCell(record.preferredName),
+    textCell(record.firstName),
+    textCell(record.lastName),
+    textCell(record.department),
+    textCell(record.absenceType),
+    dateCell(record.startDate), // Startdatum der Abwesenheit
+    dateCell(record.endDate), // Enddatum der Abwesenheit (null → empty cell)
+    amountCell(record.dailyAmount),
+    amountCell(record.durationDays),
+    amountCell(record.hourlyAmount),
+    amountCell(record.durationHours),
+    textCell(record.comment),
+    textCell(record.status),
+    textCell(record.certificateStatus),
   ];
 }

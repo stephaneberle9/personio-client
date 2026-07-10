@@ -1,17 +1,23 @@
 import * as XLSX from 'xlsx';
+import type { Cell } from './columns.js';
 
 /**
  * Build a single-sheet workbook from a header row plus data rows (array of
  * arrays). Header strings are written verbatim — including non-breaking spaces
  * and en-dashes — so the output matches the reference format byte-for-byte.
+ *
+ * Data cells may be plain values, explicit typed cells (`{ t, v, z }` for real
+ * date/number cells with a display format), or `null` for a truly empty cell.
+ * `aoa_to_sheet` preserves typed cell objects as-is and emits no cell for
+ * `null`, so the output reproduces the reference's cell types and formats.
  */
 export function buildSheetWorkbook(
   sheetName: string,
   headers: readonly string[],
-  rows: Array<Array<string | number>>
+  rows: Array<Array<Cell>>
 ): XLSX.WorkBook {
-  const aoa: Array<Array<string | number>> = [[...headers], ...rows];
-  const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+  const aoa: Array<Array<Cell>> = [[...headers], ...rows];
+  const worksheet = XLSX.utils.aoa_to_sheet(aoa, { cellDates: false });
   const workbook = XLSX.utils.book_new();
   // Excel limits sheet names to 31 characters; the reference names already fit.
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName.slice(0, 31));
