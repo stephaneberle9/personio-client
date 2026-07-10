@@ -64,7 +64,9 @@ async function main(): Promise<void> {
       from: range.from,
       to: range.to,
       source: kind,
-      reportId,
+      // Only meaningful when the data actually came from a report; a leftover
+      // PERSONIO_REPORT_ID env var must not end up in an api-source audit trail.
+      reportId: kind === 'report' ? reportId : null,
       generatedAt: new Date().toISOString(),
       count: data.length,
     },
