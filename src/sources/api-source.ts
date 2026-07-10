@@ -19,6 +19,15 @@ export interface ApiSourceOptions {
   attendanceStatus?: AttendanceStatus;
   /** Expensive project fields to expand via `includes`. */
   projectIncludes?: string[];
+  /**
+   * Optional remapping for the raw status enums the v2 API returns on periods
+   * (e.g. `{ APPROVED: 'Genehmigt' }` to localize, or any other relabeling).
+   * Each record's status is mapped through this table when building the domain
+   * record; values without an entry pass through unchanged. When omitted,
+   * statuses stay as the raw enum. The library core ships no labels of its own,
+   * so supply the map from the consumer (see `examples/export-xlsx.ts`).
+   */
+  statusLabels?: Record<string, string>;
 }
 
 /** Build the grouping key for a work period: person + attribution date + project. */
@@ -44,6 +53,7 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
   private readonly fields: FieldResolverConfig;
   private readonly attendanceStatus: AttendanceStatus;
   private readonly projectIncludes: string[];
+  private readonly statusLabels: Record<string, string>;
 
   constructor(
     private readonly client: PersonioClient,
@@ -52,6 +62,12 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
     this.fields = resolveFieldConfig(options.fields);
     this.attendanceStatus = options.attendanceStatus ?? 'CONFIRMED';
     this.projectIncludes = options.projectIncludes ?? [];
+    this.statusLabels = options.statusLabels ?? {};
+  }
+
+  /** Map a raw status enum through the configured labels, else pass it through. */
+  private mapStatus(status: string): string {
+    return this.statusLabels[status] ?? status;
   }
 
   async getAttendance(range: DateRange): Promise<AttendanceRecord[]> {
@@ -209,7 +225,7 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
         hourlyAmount: null,
         durationHours: null,
         comment: p.comment ?? '',
-        status: p.approval?.status ?? '',
+        status: this.mapStatus(p.approval?.status ?? ''),
         certificateStatus: resolveString(p, this.fields.certificateStatusFields, dyn),
       };
     });

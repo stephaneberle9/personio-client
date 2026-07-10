@@ -131,6 +131,26 @@ new ApiSource(client, {
 });
 ```
 
+### Status label mapping
+
+The v2 API returns raw status enums (`APPROVED`, `PENDING`, `REJECTED`, …) on
+attendance- and absence-periods. Pass a `statusLabels` map to `ApiSource` to
+remap them to labels of your choice when records are built — most commonly to
+localize them (the legacy Custom Report export shows German labels), but any
+relabeling works. Enum values without an entry pass through unchanged, and
+omitting the option keeps the raw enum:
+
+```ts
+new ApiSource(client, {
+  statusLabels: { APPROVED: 'Genehmigt', PENDING: 'Ausstehend', REJECTED: 'Abgelehnt' },
+});
+```
+
+The library core ships no labels of its own. `ReportSource` is unaffected —
+report cells already carry the label. See
+[`examples/export-xlsx.ts`](examples/export-xlsx.ts) for the German map wired
+into the Excel export.
+
 ### Custom Report source
 
 ```ts

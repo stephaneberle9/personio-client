@@ -40,6 +40,20 @@ import { buildSheetWorkbook, writeWorkbook } from './lib/xlsx.js';
 
 type ExportType = 'attendance' | 'absence' | 'both';
 
+/**
+ * German localization for the raw v2 status enums, matching the labels the
+ * legacy Custom Report Excel export shows in the "Status des
+ * Abwesenheitszeitraums" column. This is an output format, not library logic —
+ * it lives in the example and is passed to the API source via `statusLabels`
+ * so the API-sourced export reaches 1:1 parity with the reference report. Enum
+ * values without an entry pass through unchanged.
+ */
+const STATUS_LABELS_DE: Record<string, string> = {
+  APPROVED: 'Genehmigt',
+  PENDING: 'Ausstehend',
+  REJECTED: 'Abgelehnt',
+};
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const range: DateRange = { from: requireString(args, 'from'), to: requireString(args, 'to') };
@@ -56,6 +70,9 @@ async function main(): Promise<void> {
   const client = new PersonioClient(configFromEnv());
   const source = createSource(client, {
     kind,
+    // Localize the raw v2 status enums to the German report labels. Only the API
+    // source needs this; ReportSource cells already carry the localized label.
+    api: { statusLabels: STATUS_LABELS_DE },
     report: reportId ? { reportId, filterByRange: true } : undefined,
   });
 
