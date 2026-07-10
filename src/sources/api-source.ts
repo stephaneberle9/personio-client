@@ -42,8 +42,33 @@ export interface ApiSourceOptions {
   fetchAbsenceBreakdowns?: boolean;
 }
 
-/** Small concurrency cap for the opt-in per-period breakdown fetch (N+1). */
+/**
+ * How many per-period breakdown requests (the opt-in N+1) may be in flight at
+ * once. This only sets pipeline depth — the client's rate limiter governs the
+ * actual request rate, pacing dispatches to the endpoint's token-bucket refill
+ * rate, so a higher cap cannot exceed the safe rate. Personio caps
+ * `/v2/absence-periods/{id}/breakdowns` at ~10 req/s (verified), and per-request
+ * latency (~30 ms) is well under the resulting ~100 ms pacing gate, so only a
+ * couple of requests need to be in flight to saturate it; a small cap suffices.
+ */
 const ABSENCE_BREAKDOWN_CONCURRENCY = 5;
+
+/**
+ * Attendance-periods pagination is the export's real bottleneck: Personio's
+ * cursor pages get slower the deeper you go (page 1 ~130 ms, page 50 ~590 ms),
+ * so a wide single query degrades badly. Splitting the `attribution_date` range
+ * into fixed-width windows fetched in parallel keeps every page shallow (fast)
+ * and lets the endpoint's ~10 req/s be the bound instead of cursor depth. The
+ * windows tile the range with no overlap, so concatenating their results
+ * reproduces the single-query set exactly.
+ */
+const ATTENDANCE_WINDOW_DAYS = 14;
+/**
+ * Max concurrent window fetches. All share the one `/v2/attendance-periods`
+ * rate-limit bucket, so this only sets pipeline depth (enough to keep the
+ * endpoint's rate saturated), not the request rate.
+ */
+const ATTENDANCE_WINDOW_CONCURRENCY = 8;
 
 /** DAY/HOUR sums derived from an absence period's in-range breakdown entries. */
 interface BreakdownSums {
@@ -95,12 +120,7 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
 
   async getAttendance(range: DateRange): Promise<AttendanceRecord[]> {
     const [periods, projects, persons, costCenters] = await Promise.all([
-      this.client.attendancePeriods.list({
-        attributionDateGte: range.from,
-        attributionDateLte: range.to,
-        status: this.attendanceStatus,
-        sort: 'person.id,start.date_time',
-      }),
+      this.listAttendancePeriods(range),
       this.client.projects.list({ includes: this.projectIncludes }),
       this.client.persons.list(),
       this.listCostCentersSafe(),
@@ -158,6 +178,26 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
         a.project.localeCompare(b.project)
     );
     return records;
+  }
+
+  /**
+   * Fetch attendance periods across the range, splitting it into
+   * {@link ATTENDANCE_WINDOW_DAYS}-day windows fetched in parallel (bounded by
+   * {@link ATTENDANCE_WINDOW_CONCURRENCY}) to avoid Personio's deep-cursor
+   * slowdown. The windows tile the range, so the concatenation equals a single
+   * query over the whole range.
+   */
+  private async listAttendancePeriods(range: DateRange): Promise<AttendancePeriod[]> {
+    const windows = splitDateRange(range.from, range.to, ATTENDANCE_WINDOW_DAYS);
+    const chunks = await mapWithConcurrency(windows, ATTENDANCE_WINDOW_CONCURRENCY, (window) =>
+      this.client.attendancePeriods.list({
+        attributionDateGte: window.from,
+        attributionDateLte: window.to,
+        status: this.attendanceStatus,
+        sort: 'person.id,start.date_time',
+      })
+    );
+    return chunks.flat();
   }
 
   private toAttendanceRecord(
@@ -337,6 +377,31 @@ async function mapWithConcurrency<T, R>(
 
 function indexById<T extends { id: string }>(items: T[]): Map<string, T> {
   return new Map(items.map((item) => [item.id, item]));
+}
+
+/** Add `days` to a `YYYY-MM-DD` date in UTC, returning `YYYY-MM-DD`. */
+function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Split an inclusive `[from, to]` date range (both `YYYY-MM-DD`) into
+ * consecutive, non-overlapping windows of at most `windowDays` days. The windows
+ * tile the range exactly — every date belongs to exactly one — so results
+ * fetched per window concatenate back to the whole-range result with no gaps or
+ * duplicates. Returns `[]` when `to < from`.
+ */
+export function splitDateRange(from: string, to: string, windowDays: number): DateRange[] {
+  const windows: DateRange[] = [];
+  let start = from;
+  while (start <= to) {
+    const end = addDays(start, windowDays - 1);
+    windows.push({ from: start, to: end < to ? end : to });
+    start = addDays(end, 1);
+  }
+  return windows;
 }
 
 /**

@@ -79,7 +79,17 @@ const server = setupServer(
   http.post(`${BASE}/v2/auth/token`, () =>
     HttpResponse.json({ access_token: 'tok', token_type: 'Bearer', expires_in: 3600 })
   ),
-  http.get(`${BASE}/v2/attendance-periods`, () => HttpResponse.json({ _data: periods })),
+  // Filter by the attribution_date window so the parallel sub-range fetch (which
+  // splits the range into several dated queries) reassembles to the same set.
+  http.get(`${BASE}/v2/attendance-periods`, ({ request }) => {
+    const url = new URL(request.url);
+    const gte = url.searchParams.get('attribution_date.gte');
+    const lte = url.searchParams.get('attribution_date.lte');
+    const data = periods.filter(
+      (p) => (!gte || p.attribution_date >= gte) && (!lte || p.attribution_date <= lte)
+    );
+    return HttpResponse.json({ _data: data });
+  }),
   http.get(`${BASE}/v2/projects`, () => HttpResponse.json({ _data: projects })),
   http.get(`${BASE}/v2/persons`, () => HttpResponse.json({ _data: persons })),
   http.get(`${BASE}/v2/cost-centers`, () => HttpResponse.json({ _data: costCenters }))
