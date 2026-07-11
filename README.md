@@ -205,11 +205,11 @@ Run with [`tsx`](https://github.com/privatenumber/tsx) (a dev dependency).
 The examples separate three kinds of input:
 
 - **Secrets** (`PERSONIO_CLIENT_ID` / `PERSONIO_CLIENT_SECRET`) — always in `.env`.
-- **Per-run parameters** (`--from`, `--to`, `--type`, `--source`, `--out`, …) —
-  CLI flags, since they change every run.
-- **Non-secret account/locale config** (`reportId`, `personnelFieldIds`,
-  `statusLabels`, default `costCenters`) — constant for an account, so it lives
-  in one optional JSON file passed with `--config`. Copy
+- **Pure run parameters** (`--from`, `--to`, `--type`, `--out`) — CLI flags,
+  since they change every run.
+- **Account-scoped config** (`personnelFieldIds`, `statusLabels`, and *default*
+  `reportId` / `costCenters`) — belongs to the account, so it lives in one
+  optional JSON file passed with `--config`. Copy
   [`personio.config.example.json`](personio.config.example.json) to
   `personio.config.json` (gitignored) and fill in your account's values:
 
@@ -219,10 +219,20 @@ The examples separate three kinds of input:
     --config ./personio.config.json
   ```
 
-  Each of those values also falls back to a `PERSONIO_*` environment variable
+  Each value also falls back to a `PERSONIO_*` environment variable
   (`PERSONIO_REPORT_ID`, `PERSONIO_PERSONNEL_FIELD_IDS`) — convenient for
   server-side use where a file is awkward. Precedence is **config file >
   environment > built-in default**, so `--config` is entirely optional.
+
+  Two account-scoped values are *selected per run*: an account has several
+  reports and cost centers, and each run picks one. Pass `--report-id <uuid>`
+  or `--cost-centers <list>` to override the config/env default for that run —
+  which is how you compare against different reports without editing the file:
+
+  ```bash
+  tsx examples/export-xlsx.ts --from 2026-06-01 --to 2026-06-30 \
+    --type attendance --source report --report-id <report-uuid> --out ./out
+  ```
 
 ### Excel export
 

@@ -9,7 +9,9 @@
  *   --from <YYYY-MM-DD>      range start (required)
  *   --to   <YYYY-MM-DD>      range end (required)
  *   --type attendance|absence|both   what to export (default: both)
- *   --source api|report      data source (default: report if PERSONIO_REPORT_ID set, else api)
+ *   --source api|report      data source (default: report if a reportId is set, else api)
+ *   --report-id <uuid>       Custom Report to read (report source); overrides the
+ *                           config file's reportId / PERSONIO_REPORT_ID per run
  *   --out <dir>              output directory (default: .)
  *   --absence-breakdowns <true|false>   api source only: fetch per-period
  *                           breakdowns so the absence amount columns are
@@ -57,7 +59,10 @@ async function main(): Promise<void> {
 
   // Non-secret account/locale config: --config file > PERSONIO_* env > defaults.
   const cfg = loadExampleConfig({ configPath: args.config });
-  const reportId = cfg.reportId;
+  // reportId is account-scoped but chosen per run (attendance vs absence use
+  // different reports), so a --report-id flag overrides the config/env default.
+  const reportId =
+    (typeof args['report-id'] === 'string' ? args['report-id'] : undefined) ?? cfg.reportId;
   const fields = cfg.personnelFieldIds
     ? { personnelNumberFields: cfg.personnelFieldIds }
     : undefined;

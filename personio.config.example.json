@@ -1,5 +1,5 @@
 {
-  "_note": "Non-secret, account/locale config for the example scripts. Copy to personio.config.json (gitignored) and fill in your account's values, then pass it with --config ./personio.config.json. Every value also falls back to a PERSONIO_* env var. Credentials do NOT go here — they stay in .env.",
+  "_note": "Non-secret, account-scoped config for the example scripts. Copy to personio.config.json (gitignored) and fill in your account's values, then pass it with --config ./personio.config.json. Every value also falls back to a PERSONIO_* env var. reportId and costCenters here are only DEFAULTS — a --report-id / --cost-centers CLI flag overrides them per run (leave reportId out entirely if every run passes --report-id). Credentials do NOT go here — they stay in .env.",
   "reportId": "00000000-0000-0000-0000-000000000000",
   "personnelFieldIds": ["dynamic_1234567890abcd.12345678"],
   "statusLabels": {

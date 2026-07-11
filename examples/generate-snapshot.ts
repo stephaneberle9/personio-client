@@ -14,6 +14,8 @@
  *   --cost-centers <list>      optional comma-separated cost-center pre-filter
  *                              (overrides costCenters from the config file)
  *   --source api|report        data source (default: report if a reportId is set)
+ *   --report-id <uuid>         Custom Report to read (report source); overrides the
+ *                              config file's reportId / PERSONIO_REPORT_ID per run
  *   --out <file>               snapshot JSON output path (default: snapshot.json)
  *   --inject-html <path>       optional dashboard HTML to inject the snapshot into
  *   --config <path>            optional JSON file with non-secret account config
@@ -48,7 +50,10 @@ async function main(): Promise<void> {
   // Non-secret account config: --config file > PERSONIO_* env > defaults. A
   // `--cost-centers` flag, being per-run, overrides the config file's default.
   const cfg = loadExampleConfig({ configPath: args.config });
-  const reportId = cfg.reportId ?? null;
+  // reportId is account-scoped but chosen per run, so --report-id overrides the
+  // config/env default (same pattern as --cost-centers below).
+  const reportId =
+    (typeof args['report-id'] === 'string' ? args['report-id'] : undefined) ?? cfg.reportId ?? null;
   const cliCostCenters = parseList(args['cost-centers']);
   const costCenters = cliCostCenters.length ? cliCostCenters : cfg.costCenters;
   const fields = cfg.personnelFieldIds
