@@ -2,12 +2,16 @@ import axios from 'axios';
 
 /**
  * Error thrown for any failed Personio API call. Carries the HTTP status, the
- * request path, and — for `403` responses — a scope-aware hint naming the
- * Personio access right / OAuth2 scope the credential is most likely missing.
+ * request path, and — when the status and path indicate a likely-missing access
+ * right — a scope-aware hint naming the Personio access right / OAuth2 scope the
+ * credential is most likely missing. A missing right does not always surface as
+ * `403`: it also appears as `401` on `/v2/persons` and `400` on `/v2/reports`
+ * (confirmed live), so the hint covers those too.
  *
  * This mirrors and generalizes the scope-aware error messages developed on the
- * `personio-mcp-server` branch this client was extracted from: a `403` should
- * tell the caller *which* access right to grant, not just "access denied".
+ * `personio-mcp-server` branch this client was extracted from: an authorization
+ * failure should tell the caller *which* access right to grant, not just
+ * "access denied".
  */
 export class PersonioApiError extends Error {
   /** HTTP status code, when the failure was an HTTP response. */
@@ -70,10 +74,80 @@ const SCOPE_BY_RESOURCE: ReadonlyArray<{ match: RegExp; scope: string }> = [
   { match: /\/auth\/token/, scope: '(token request — check client id/secret and credential status)' },
 ];
 
-/** Best-effort lookup of the scope a path needs, for 403 hinting. */
+/** Best-effort lookup of the scope a path needs, for scope-aware hinting. */
 function scopeForPath(path: string | undefined): string | undefined {
   if (!path) return undefined;
   return SCOPE_BY_RESOURCE.find((entry) => entry.match.test(path))?.scope;
+}
+
+/** The `/v2/auth/token` request, where a 401 really is a credential problem. */
+function isAuthTokenPath(path: string | undefined): boolean {
+  return !!path && /\/auth\/token/.test(path);
+}
+
+/** A `/v2/reports` request, where a 400 needs body-specific hinting. */
+function isReportsPath(path: string | undefined): boolean {
+  return !!path && /\/reports/.test(path);
+}
+
+/**
+ * Hint for a `403`, or for a `401`/`400` that a scope probe showed is really a
+ * missing access right in disguise. Names the expected scope when known.
+ */
+function missingAccessRightHint(scope: string | undefined): string {
+  return scope
+    ? ` Access denied — your Personio API credential is missing the access right for this resource (expected scope: ${scope}). Grant it to the credential and retry.`
+    : ' Access denied — your Personio API credential lacks the required access right for this resource.';
+}
+
+/**
+ * Hint for a `401` on a non-token path. A missing access right does not always
+ * surface as `403`: confirmed live, `/v2/persons` returns `401 "Unauthorized
+ * Request"` when the credential lacks the persons read right. So the cause is
+ * ambiguous — an invalid/expired token *or* a missing right — and the hint says
+ * so rather than pointing only at the token (which the bare 401 message implies).
+ */
+function ambiguousUnauthorizedHint(scope: string | undefined): string {
+  const scopePart = scope ? ` (expected scope: ${scope})` : '';
+  return (
+    ` This likely means either an invalid or expired token, or that your Personio API credential` +
+    ` is missing the access right for this resource${scopePart} — on this API a missing right does` +
+    ` not always surface as 403 (observed live: /v2/persons returns 401 here). If the token is` +
+    ` valid, grant the access right to the credential and retry.`
+  );
+}
+
+/**
+ * Hint for a `400` on `/v2/reports`, disambiguated by the response body. The
+ * Reporting v2 endpoint overloads `400` for three unrelated causes (all
+ * confirmed live, see OPEN_QUESTIONS.md "Reports"), and its own messages are
+ * ambiguous — so the hint is phrased as the most likely cause, not a certainty.
+ */
+function reportsBadRequestHint(apiMessage: string, scope: string | undefined): string {
+  if (/unauthorized token/i.test(apiMessage)) {
+    const scopePart = scope ? ` (expected scope: ${scope})` : '';
+    return (
+      ` This most likely means your Personio API credential lacks the reports read access right` +
+      `${scopePart} — the API reports a missing reports right as 400 "Unauthorized token" rather` +
+      ` than 403. Grant the reports read right to the credential and retry.`
+    );
+  }
+  if (/unsupported nested type/i.test(apiMessage)) {
+    return (
+      ` This report is most likely built with chart grouping and cannot be read through the API —` +
+      ` only flat table reports are readable, and the report list's chart_type is not a reliable` +
+      ` indicator (grouped reports still report "table"). Rebuild it as a flat table report to` +
+      ` export it via the API.`
+    );
+  }
+  return (
+    ` This is most likely either a wrong report id, or the report does not have API access` +
+    ` activated. API access is a per-report toggle in Personio (the report's "API access" /` +
+    ` "API-Zugriff" column), separate from both the reports read scope and from sharing the report` +
+    ` with people (its "shared"/"private" status) — a report without API access activated is` +
+    ` invisible to the API, so GET /v2/reports also returns an empty 200 list. Verify the id and` +
+    ` that API access is activated for the report, then retry.`
+  );
 }
 
 /**
@@ -99,8 +173,12 @@ function extractApiMessage(data: unknown): string | undefined {
 
 /**
  * Normalize any thrown value from an axios request into a {@link PersonioApiError}.
- * For `403`, appends a scope-aware hint naming the likely-missing access right.
- * Never includes the Authorization header or query string in the message.
+ * Appends a best-effort, scope-aware hint when the status and path indicate a
+ * likely-missing access right — not only on `403`, since a missing right also
+ * surfaces as `401` on `/v2/persons` and `400` on `/v2/reports` (confirmed live;
+ * see OPEN_QUESTIONS.md "Authentication & scopes" and "Reports"). All hints are
+ * phrased as likelihoods because the API's own messages are ambiguous. Never
+ * includes the Authorization header or query string in the message.
  */
 export function toPersonioApiError(error: unknown, path?: string): PersonioApiError {
   if (error instanceof PersonioApiError) return error;
@@ -110,17 +188,31 @@ export function toPersonioApiError(error: unknown, path?: string): PersonioApiEr
     const requestPath = path ?? new URL(error.config?.url ?? '', 'http://x').pathname;
     const apiMessage = extractApiMessage(error.response?.data) ?? error.message;
 
-    if (status === 403) {
-      const scope = scopeForPath(requestPath);
-      const hint = scope
-        ? ` Access denied — your Personio API credential is missing the access right for this resource (expected scope: ${scope}). Grant it to the credential and retry.`
-        : ' Access denied — your Personio API credential lacks the required access right for this resource.';
-      return new PersonioApiError(`Personio API error (403) on ${requestPath}: ${apiMessage}.${hint}`, {
+    const withHint = (hint: string): PersonioApiError =>
+      new PersonioApiError(`Personio API error (${status}) on ${requestPath}: ${apiMessage}.${hint}`, {
         status,
         path: requestPath,
         details: error.response?.data,
         cause: sanitizedCause(error),
       });
+
+    if (status === 403) {
+      return withHint(missingAccessRightHint(scopeForPath(requestPath)));
+    }
+
+    // A missing right on the persons endpoint comes back as 401, whose bare
+    // message reads like a bad token — hint that it may be a missing right too.
+    // The token request's own 401 is genuinely a credential problem: unchanged.
+    if (status === 401 && !isAuthTokenPath(requestPath)) {
+      return withHint(ambiguousUnauthorizedHint(scopeForPath(requestPath)));
+    }
+
+    // The reports endpoint overloads 400 for a missing right, a grouped/chart
+    // report, and a wrong id / a report without API access activated —
+    // disambiguate by the body. Other 400s (and 400s on any other endpoint)
+    // keep the plain, unhinted message.
+    if (status === 400 && isReportsPath(requestPath)) {
+      return withHint(reportsBadRequestHint(apiMessage, scopeForPath(requestPath)));
     }
 
     return new PersonioApiError(
