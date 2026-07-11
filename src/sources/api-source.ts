@@ -398,8 +398,8 @@ const MIDNIGHT_RE = /^00:00(?::00(?:\.0+)?)?$/;
  * local midnight (`T00:00:00`, no offset — dates are local per `timezone_id`) at
  * the *start of the day after* the last absent day. Verified live against the
  * per-day breakdown across single-day, multi-day and multi-month absences — the
- * breakdown's last covered day is always `ends_at` minus one day (see
- * OPEN_QUESTIONS.md). Hour-tracked absences instead carry a real time-of-day and
+ * breakdown's last covered day is always `ends_at` minus one day.
+ * Hour-tracked absences instead carry a real time-of-day and
  * end on the same calendar day. So:
  *   - midnight            → the previous calendar day (`YYYY-MM-DD`), inclusive;
  *   - non-midnight (hour) → that day's date as-is;

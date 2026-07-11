@@ -7,7 +7,7 @@ import { z } from 'zod';
  * failure — they remain available to the configurable field resolvers.
  *
  * Where the exact v2 shape is not fully documented, fields are modelled as
- * optional/nullable and verified against a real account (see OPEN_QUESTIONS.md).
+ * optional/nullable and verified against a real account.
  */
 
 /** `{ date_time: "2026-06-01T08:00:00" }` wrapper used throughout v2. */
@@ -61,7 +61,7 @@ export type AbsencePeriod = z.infer<typeof absencePeriodSchema>;
 
 /**
  * One day's contribution to an absence period. `effective_duration.unit` is
- * `DAY` or `HOUR` (verified live, see OPEN_QUESTIONS.md); `value` is the amount
+ * `DAY` or `HOUR` (verified live); `value` is the amount
  * in that unit for `date`.
  */
 export const absenceBreakdownSchema = z

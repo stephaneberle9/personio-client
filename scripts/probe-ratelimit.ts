@@ -1,6 +1,6 @@
 /**
  * Probe Personio v2's rate-limit response headers so the client can pace itself
- * precisely instead of probing for 429s (see OPEN_QUESTIONS.md, "Rate limiting").
+ * precisely instead of probing for 429s.
  *
  * Personio fronts the API with a Spring Cloud Gateway token-bucket limiter and
  * exposes the bucket state on every response:

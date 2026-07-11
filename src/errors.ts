@@ -120,7 +120,7 @@ function ambiguousUnauthorizedHint(scope: string | undefined): string {
 /**
  * Hint for a `400` on `/v2/reports`, disambiguated by the response body. The
  * Reporting v2 endpoint overloads `400` for three unrelated causes (all
- * confirmed live, see OPEN_QUESTIONS.md "Reports"), and its own messages are
+ * confirmed live), and its own messages are
  * ambiguous — so the hint is phrased as the most likely cause, not a certainty.
  */
 function reportsBadRequestHint(apiMessage: string, scope: string | undefined): string {
@@ -175,8 +175,8 @@ function extractApiMessage(data: unknown): string | undefined {
  * Normalize any thrown value from an axios request into a {@link PersonioApiError}.
  * Appends a best-effort, scope-aware hint when the status and path indicate a
  * likely-missing access right — not only on `403`, since a missing right also
- * surfaces as `401` on `/v2/persons` and `400` on `/v2/reports` (confirmed live;
- * see OPEN_QUESTIONS.md "Authentication & scopes" and "Reports"). All hints are
+ * surfaces as `401` on `/v2/persons` and `400` on `/v2/reports` (confirmed
+ * live). All hints are
  * phrased as likelihoods because the API's own messages are ambiguous. Never
  * includes the Authorization header or query string in the message.
  */

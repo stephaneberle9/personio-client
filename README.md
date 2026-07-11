@@ -65,8 +65,7 @@ npm install @stephaneberle9/personio-client
    - `personio:attendances:read`
    - `personio:absences:read`
    - `personio:persons:read`
-   - plus project / cost-center / report scopes (exact names vary per account —
-     see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)).
+   - plus project / cost-center / report scopes (exact names vary per account).
 
 3. Provide credentials via environment (the examples load `.env` automatically):
 
@@ -127,7 +126,7 @@ const projects = await client.projects.list();
 
 Personio surfaces some values (personnel number, customer, cost center,
 billable, certificate status) under account-specific keys. The defaults are
-already tuned to a verified account (see [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)):
+already tuned to a real Personio account shape:
 the personnel number is read from the `custom_attributes[]` array by its opaque
 id, the customer from the project's `client_name`, and the cost-center name is
 joined from `/v2/cost-centers`. Override the resolver candidates per account
@@ -136,8 +135,8 @@ instead of forking:
 ```ts
 new ApiSource(client, {
   fields: {
-    // Your account's personnel-number custom-field id (see OPEN_QUESTIONS.md).
-    personnelNumberFields: ['dynamic_6322ffb59ab387.97097504'],
+    // Your account's personnel-number custom-field id (opaque, per account).
+    personnelNumberFields: ['dynamic_1234567890abcd.12345678'],
     customerFields: ['client_name'],
     costCenterFields: ['cost_center'],
   },

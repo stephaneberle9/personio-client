@@ -2,8 +2,7 @@
  * Probe which v2 endpoints a credential can access and capture the raw
  * response bodies — especially 403s, which may name the missing OAuth2 scope.
  * Useful with a deliberately low-privilege credential to discover the real
- * `personio:<resource>:<action>` scope strings (see OPEN_QUESTIONS.md,
- * "Authentication & scopes").
+ * `personio:<resource>:<action>` scope strings.
  *
  * Usage (from the repo root):
  *

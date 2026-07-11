@@ -66,14 +66,14 @@ export interface FieldResolverConfig {
 // VERIFY: the default candidate names below are best-effort guesses for a
 // generic Personio account. Confirm the real field keys/labels against the
 // target account and override via the client config where they differ
-// (see OPEN_QUESTIONS.md).
+// (see the README's "Field resolution" section).
 export const DEFAULT_FIELD_RESOLVER_CONFIG: FieldResolverConfig = {
   // The personnel number ("Kostenträger Nummer") is a *custom* attribute on
   // `/v2/persons` with no human label — only an opaque id. The first candidate
-  // is the confirmed id for the itemis account (verified against a live run);
-  // override it per account if your custom field id differs.
+  // is a placeholder in the real `dynamic_<hash>.<id>` shape; every account has
+  // its own id, so override it via the client config with yours.
   personnelNumberFields: [
-    'dynamic_6322ffb59ab387.97097504',
+    'dynamic_1234567890abcd.12345678',
     'personnel_number',
     'kostentraeger_nummer',
     'employee_number',

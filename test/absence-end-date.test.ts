@@ -8,7 +8,7 @@ import { ApiSource, inclusiveEndDate } from '../src/sources/api-source.js';
 // local midnight (the start of the day after the last absent day); the reference
 // report shows the INCLUSIVE last day. `inclusiveEndDate` converts one to the
 // other. Raw shapes below are the ones confirmed live against /v2/absence-periods
-// and its per-day breakdown (see OPEN_QUESTIONS.md).
+// and its per-day breakdown.
 describe('inclusiveEndDate', () => {
   it('maps a single-day absence to the same day (midnight-exclusive → minus one)', () => {
     // starts_from 2026-04-02, ends_at 2026-04-03T00:00:00 → last absent day 2026-04-02

@@ -47,7 +47,7 @@ describe('Excel header equality with the reference format', () => {
 
   it('a generated workbook round-trips the exact attendance header row', () => {
     const record: AttendanceRecord = {
-      personId: 'p1', personnelNumber: '71181', lastName: 'Schmidt', firstName: 'Anna',
+      personId: 'p1', personnelNumber: '12345', lastName: 'Schmidt', firstName: 'Anna',
       customer: 'Acme', costCenter: '50101 Alten GmbH', project: 'Website Relaunch',
       projectCode: '25243-1', subProject: 'Parent', date: '2026-06-01', hours: 7.5,
       comment: 'x', billable: true, projectStart: '2026-01-01', projectEnd: '2026-12-31',
@@ -61,7 +61,7 @@ describe('Excel header equality with the reference format', () => {
 
   it('a generated absence workbook round-trips the exact absence header row', () => {
     const record: AbsenceRecord = {
-      personId: 'p1', personnelNumber: '71181', preferredName: 'Anna S.', firstName: 'Anna',
+      personId: 'p1', personnelNumber: '12345', preferredName: 'Anna S.', firstName: 'Anna',
       lastName: 'Schmidt', department: 'Engineering', absenceType: 'Urlaub',
       startDate: '2026-04-01', endDate: '2026-04-05', dailyAmount: 1, durationDays: 5,
       hourlyAmount: null, durationHours: null, comment: '', status: 'APPROVED',

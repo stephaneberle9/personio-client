@@ -22,8 +22,8 @@ function makeClient() {
 }
 
 /**
- * Shape confirmed live against a real account on 2026-07-09 (see
- * OPEN_QUESTIONS.md): `GET /v2/reports/{id}` → `{ _data, _meta }`, `_meta.columns`
+ * Shape confirmed live against a real account on 2026-07-09:
+ * `GET /v2/reports/{id}` → `{ _data, _meta }`, `_meta.columns`
  * is `[{ name, display, type }]`, and each `_data` row is a positional array of
  * typed cell objects (`numeric_value` / `string_value` / `options_value`).
  * Content below is fabricated, not real employee data.

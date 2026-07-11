@@ -39,8 +39,8 @@ export interface ReportSourceOptions {
 }
 
 // Candidates are tried as an exact column *id* match first (Personio's Reporting
-// v2 attribute names, e.g. `attendance_hours_tracked`, confirmed live 2026-07-09 —
-// see OPEN_QUESTIONS.md), then as a substring of the (slugified) column *label*,
+// v2 attribute names, e.g. `attendance_hours_tracked`, confirmed live
+// 2026-07-09), then as a substring of the (slugified) column *label*,
 // covering both the English Reporting v2 labels and German UI/export labels a
 // differently-configured account might show instead.
 const DEFAULT_ATTENDANCE_COLUMNS: Partial<Record<keyof AttendanceRecord, string[]>> = {

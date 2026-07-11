@@ -18,7 +18,7 @@ const persons = [
     last_name: 'Schmidt',
     preferred_name: 'Anna S.',
     custom_attributes: [
-      { global_id: '5877899', id: 'dynamic_6322ffb59ab387.97097504', type: 'int', value: 71181 },
+      { global_id: '9999999', id: 'dynamic_1234567890abcd.12345678', type: 'int', value: 12345 },
     ],
   },
 ];
@@ -114,7 +114,7 @@ describe('ApiSource attendance mapping', () => {
     expect(day1).toMatchObject({
       date: '2026-06-01',
       hours: 7.5, // 8h work − 0.5h break
-      personnelNumber: '71181',
+      personnelNumber: '12345',
       lastName: 'Schmidt',
       firstName: 'Anna',
       customer: 'Acme',

@@ -32,7 +32,7 @@ describe('PersonService', () => {
               first_name: 'Anna',
               last_name: 'Schmidt',
               email: 'anna@example.com',
-              personnel_number: '71181',
+              personnel_number: '12345',
               department: 'Engineering',
             },
           ],
@@ -48,7 +48,7 @@ describe('PersonService', () => {
       preferredName: '',
       email: 'anna@example.com',
       department: 'Engineering',
-      personnelNumber: '71181',
+      personnelNumber: '12345',
     });
   });
 
@@ -67,10 +67,10 @@ describe('PersonService', () => {
               custom_attributes: [
                 { global_id: '99297', id: 'city', type: 'string', value: 'Essen' },
                 {
-                  global_id: '5877899',
-                  id: 'dynamic_6322ffb59ab387.97097504',
+                  global_id: '9999999',
+                  id: 'dynamic_1234567890abcd.12345678',
                   type: 'int',
-                  value: 71181,
+                  value: 12345,
                 },
               ],
             },
@@ -83,7 +83,7 @@ describe('PersonService', () => {
     expect(records[0]).toMatchObject({
       firstName: 'Anna',
       lastName: 'Schmidt',
-      personnelNumber: '71181',
+      personnelNumber: '12345',
       // Department is not on /v2/persons (it lives on the employment's org
       // units, id-only), so it resolves to empty here.
       department: '',

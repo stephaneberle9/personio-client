@@ -47,7 +47,7 @@ export class AbsencePeriodsEndpoint {
    * (`GET /v2/absence-periods/{id}/breakdowns`), following pagination. Each
    * entry carries a `date` and an `effective_duration` of `{ unit, value }`
    * (`unit` is `DAY` or `HOUR`). The base absence period does not carry any
-   * amounts, so this is the way to derive them (see OPEN_QUESTIONS.md).
+   * amounts, so this is the way to derive them.
    */
   async breakdowns(absencePeriodId: string): Promise<AbsenceBreakdown[]> {
     const path = `/v2/absence-periods/${encodeURIComponent(absencePeriodId)}/breakdowns`;

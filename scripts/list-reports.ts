@@ -5,7 +5,7 @@
  * (Reports -> open the report -> Share -> select the credential); the
  * credential's reports:read right alone yields an empty list. Only flat
  * `table` reports can be read via `GET /v2/reports/{id}`; grouped/chart
- * reports reject the read (see OPEN_QUESTIONS.md, "Reports").
+ * reports reject the read.
  *
  * Usage (from the repo root):
  *

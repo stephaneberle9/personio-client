@@ -20,7 +20,7 @@ export interface ReportData {
 export interface ReportsEndpointOptions {
   /**
    * Build the report read path from a report id. Defaults to the Reporting v2
-   * path, confirmed against a live account (see OPEN_QUESTIONS.md).
+   * path, confirmed against a live account.
    */
   reportPath?: (reportId: string) => string;
 }
@@ -32,8 +32,8 @@ const DEFAULT_REPORT_PATH = (id: string): string =>
  * Read a Personio report by id and normalize it to {@link ReportData}.
  *
  * Uses the **Reporting v2** API (the v1 Custom Reports API is intentionally not
- * used — this is a v2-only client). Confirmed live (2026-07-09, see
- * OPEN_QUESTIONS.md): `GET /v2/reports/{id}` returns
+ * used — this is a v2-only client). Confirmed live (2026-07-09):
+ * `GET /v2/reports/{id}` returns
  * `{ report_config, _data, _meta: { columns } }`, where `_meta.columns` is
  * `[{ name, display, type }]` and `_data` is an array of rows, each row a
  * positional array of typed cell objects aligned to `_meta.columns`. Only

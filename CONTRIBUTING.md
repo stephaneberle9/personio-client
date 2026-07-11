@@ -61,7 +61,7 @@ test/          vitest tests with msw fixtures (no live API calls)
   or lives in the examples.
 - **No secrets** in code, tests, fixtures, snapshots, or logs.
 - Assumptions that can only be checked against a live account are marked with a
-  `// VERIFY:` comment and listed in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md).
+  `// VERIFY:` comment in the code.
 
 ## Releasing
 
