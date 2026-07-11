@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { buildSnapshotBlock, injectSnapshot, type Snapshot } from '../examples/lib/inject.js';
+import { buildSnapshotBlock, injectSnapshot } from '../examples/lib/snapshotInjector.js';
+import type { Snapshot } from '../examples/lib/snapshotBuilder.js';
 
 const snapshot: Snapshot = {
   meta: { from: '2026-06-01', to: '2026-06-30', source: 'api', reportId: null, generatedAt: '2026-06-28T00:00:00.000Z', count: 1 },
-  data: [
+  records: [
     {
       datum: '2026-06-01', ma: 'Schmidt, Anna', kunde: 'Acme', kst: '1001',
       projekt: 'Website', up: 'Parent', std: 7.5, kommentar: 'x',
@@ -33,7 +34,7 @@ describe('snapshot HTML injection', () => {
     const match = /const __PRELOADED_DATA__ = (\[.*?\]);/s.exec(out);
     expect(match).not.toBeNull();
     const parsed = JSON.parse(match![1]!);
-    expect(parsed).toEqual(snapshot.data);
+    expect(parsed).toEqual(snapshot.records);
   });
 
   it('is idempotent: re-injecting replaces the block rather than duplicating it', () => {
@@ -46,7 +47,7 @@ describe('snapshot HTML injection', () => {
   it('escapes a </script> sequence in the data so it cannot break out', () => {
     const evil: Snapshot = {
       ...snapshot,
-      data: [{ ...snapshot.data[0]!, kommentar: '</script><script>alert(1)</script>' }],
+      records: [{ ...snapshot.records[0]!, kommentar: '</script><script>alert(1)</script>' }],
     };
     const block = buildSnapshotBlock(evil);
     expect(block).not.toContain('</script><script>alert(1)');

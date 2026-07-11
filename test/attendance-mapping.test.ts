@@ -4,7 +4,7 @@ import { setupServer } from 'msw/node';
 import { PersonioClient } from '../src/client.js';
 import { ApiSource } from '../src/sources/api-source.js';
 import { AttendanceService } from '../src/domain/attendance-service.js';
-import { toDashboardRecord } from '../examples/lib/dashboard.js';
+import { toDashboardRecord } from '../examples/lib/model/dashboard.js';
 
 const BASE = 'https://api.personio.test';
 

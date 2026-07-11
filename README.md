@@ -273,6 +273,36 @@ flag overrides the config file's default. With `--inject-html`, a clearly marked
 block is inserted/replaced; the page's manual Excel-import path keeps working as
 a fallback.
 
+### Serve the dashboard locally
+
+Runs the same snapshot pipeline as an on-demand HTTP endpoint, so a browser page
+can trigger a live Personio pull by clicking a button instead of running the CLI
+beforehand. Starts a small local server, serves your HTML at `/`, and opens the
+default browser.
+
+```bash
+tsx examples/serve-dashboard.ts --html ./dashboard.html --config personio.config.json
+```
+
+- `--html <path>` — static HTML file served at `/` (required)
+- `--port <n>` — listen port (default `4173`)
+- `--cost-centers <list>` — optional cost-center pre-filter (overrides the config file)
+- `--config <path>` — optional account/locale config (see [Configuration](#configuration))
+
+Endpoints:
+
+- `GET /` — the HTML file passed via `--html`.
+- `GET /api/snapshot?from=YYYY-MM-DD&to=YYYY-MM-DD&source=api|report` — a live
+  pull, returning `{ records, meta }` as JSON. On failure it returns a JSON error
+  body with an appropriate status, preserving the library's scope-aware error
+  hints instead of a bare 500. Every successful pull also writes an audit copy to
+  `out/snapshot_<timestamp>.json`.
+
+This server is **local-only by design**: it binds to `127.0.0.1`, serves the one
+person at the machine, and reads credentials from `.env` that never leave the
+Node process — deliberately unlike a hosted/shared live proxy. Keep it that way
+(no remote binding, auth, or multi-tenant config).
+
 ## How hours are computed
 
 Personio v2 attendance periods carry start/end times but **no hours field**. The

@@ -37,7 +37,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "example:xlsx": "tsx examples/export-xlsx.ts",
-    "example:snapshot": "tsx examples/generate-snapshot.ts"
+    "example:snapshot": "tsx examples/generate-snapshot.ts",
+    "example:serve": "tsx examples/serve-dashboard.ts"
   },
   "dependencies": {
     "axios": "^1.7.9",

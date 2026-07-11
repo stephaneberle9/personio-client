@@ -9,7 +9,7 @@ import {
   MONTHLY_SHEET_NAME,
   attendanceRow,
   absenceRow,
-} from '../examples/lib/columns.js';
+} from '../examples/lib/model/sheet.js';
 import { buildSheetWorkbook, readHeaderRow } from '../examples/lib/xlsx.js';
 import type { AbsenceRecord, AttendanceRecord } from '../src/index.js';
 

@@ -1,4 +1,4 @@
-import type { AbsenceRecord, AttendanceRecord, DateRange } from '../../src/index.js';
+import type { AbsenceRecord, AttendanceRecord, DateRange } from '../../../src/index.js';
 
 /**
  * Exact Excel output format reproduced by the export example. The header

@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { Cell } from './columns.js';
+import type { Cell } from './model/sheet.js';
 
 /**
  * Build a single-sheet workbook from a header row plus data rows (array of

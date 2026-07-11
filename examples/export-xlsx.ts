@@ -46,7 +46,7 @@ import {
   ATTENDANCE_SHEET_NAME,
   absenceRow,
   attendanceRow,
-} from './lib/columns.js';
+} from './lib/model/sheet.js';
 import { buildSheetWorkbook, writeWorkbook } from './lib/xlsx.js';
 
 type ExportType = 'attendance' | 'absence' | 'both';

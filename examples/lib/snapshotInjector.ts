@@ -1,19 +1,4 @@
-import type { DashboardRecord } from '../../src/index.js';
-
-/** Audit-trail metadata recorded alongside a snapshot (concept §12). */
-export interface SnapshotMeta {
-  from: string;
-  to: string;
-  source: string;
-  reportId: string | null;
-  generatedAt: string;
-  count: number;
-}
-
-export interface Snapshot {
-  meta: SnapshotMeta;
-  data: DashboardRecord[];
-}
+import type { Snapshot } from './snapshotBuilder.js';
 
 const START = '<!-- PERSONIO_SNAPSHOT:START (generated block — safe to replace) -->';
 const END = '<!-- PERSONIO_SNAPSHOT:END -->';
@@ -31,7 +16,7 @@ function escapeForScript(json: string): string {
  * expects — and it leaves the page's manual Excel import untouched.
  */
 export function buildSnapshotBlock(snapshot: Snapshot): string {
-  const dataJson = escapeForScript(JSON.stringify(snapshot.data));
+  const dataJson = escapeForScript(JSON.stringify(snapshot.records));
   const metaJson = escapeForScript(JSON.stringify(snapshot.meta));
   return [
     START,

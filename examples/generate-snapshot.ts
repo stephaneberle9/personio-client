@@ -28,19 +28,11 @@
  */
 import 'dotenv/config';
 import { readFileSync, writeFileSync } from 'node:fs';
-import {
-  AttendanceService,
-  PersonioClient,
-  configFromEnv,
-  createSource,
-  resolveSourceKind,
-  type DateRange,
-  type SourceKind,
-} from '../src/index.js';
+import { resolveSourceKind, type DateRange, type SourceKind } from '../src/index.js';
 import { parseArgs, parseList, requireString } from './lib/args.js';
+import { buildSnapshot } from './lib/snapshotBuilder.js';
 import { loadExampleConfig } from './lib/config.js';
-import { toDashboardRecord } from './lib/dashboard.js';
-import { injectSnapshot, type Snapshot } from './lib/inject.js';
+import { injectSnapshot } from './lib/snapshotInjector.js';
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
@@ -56,9 +48,6 @@ async function main(): Promise<void> {
     (typeof args['report-id'] === 'string' ? args['report-id'] : undefined) ?? cfg.reportId ?? null;
   const cliCostCenters = parseList(args['cost-centers']);
   const costCenters = cliCostCenters.length ? cliCostCenters : cfg.costCenters;
-  const fields = cfg.personnelFieldIds
-    ? { personnelNumberFields: cfg.personnelFieldIds }
-    : undefined;
 
   const sourceArg = args.source;
   const kind: SourceKind = resolveSourceKind({
@@ -66,37 +55,19 @@ async function main(): Promise<void> {
     report: reportId ? { reportId } : undefined,
   });
 
-  const client = new PersonioClient(configFromEnv());
-  const source = createSource(client, {
-    kind,
-    // Resolve the account's opaque personnel-number custom field by id (from the
-    // config file or PERSONIO_PERSONNEL_FIELD_IDS); else the library defaults.
-    api: { fields },
-    report: reportId ? { reportId, filterByRange: true } : undefined,
+  const snapshot = await buildSnapshot({
+    from: range.from,
+    to: range.to,
+    source: kind,
+    costCenters,
+    reportId,
+    personnelFieldIds: cfg.personnelFieldIds,
   });
-
-  const records = await new AttendanceService(source).getRecords({
-    ...range,
-    costCenters: costCenters?.length ? costCenters : undefined,
-  });
-  const data = records.map(toDashboardRecord);
-
-  const snapshot: Snapshot = {
-    meta: {
-      from: range.from,
-      to: range.to,
-      source: kind,
-      // Only meaningful when the data actually came from a report; a leftover
-      // PERSONIO_REPORT_ID env var must not end up in an api-source audit trail.
-      reportId: kind === 'report' ? reportId : null,
-      generatedAt: new Date().toISOString(),
-      count: data.length,
-    },
-    data,
-  };
 
   writeFileSync(outPath, JSON.stringify(snapshot, null, 2) + '\n', 'utf8');
-  console.log(`Wrote ${data.length} dashboard records → ${outPath} (source: ${kind})`);
+  console.log(
+    `Wrote ${snapshot.records.length} dashboard records → ${outPath} (source: ${kind})`
+  );
 
   const injectPath = args['inject-html'];
   if (typeof injectPath === 'string') {

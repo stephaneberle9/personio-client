@@ -65,7 +65,6 @@ export {
 // Normalized models
 export type { AttendanceRecord } from './model/attendance-record.js';
 export type { AbsenceRecord } from './model/absence-record.js';
-export type { DashboardRecord } from './model/dashboard-record.js';
 export type { PersonRecord } from './model/person-record.js';
 export type {
   ApplicationRecord,
