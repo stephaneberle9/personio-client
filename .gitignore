@@ -9,6 +9,10 @@ dist/
 .env.*
 !.env.example
 
+# Account-specific example config (non-secret but account-identifying)
+personio.config.json
+!personio.config.example.json
+
 # Local data and generated artifacts
 /data/
 *.snapshot.json

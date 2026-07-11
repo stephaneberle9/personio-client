@@ -15,6 +15,10 @@
  *                           breakdowns so the absence amount columns are
  *                           populated (default: true, needed for report parity;
  *                           an opt-in N+1, pass `false` to skip it)
+ *   --config <path>          optional JSON file with non-secret account/locale
+ *                           config (reportId, personnelFieldIds, statusLabels);
+ *                           see personio.config.example.json. Individual values
+ *                           also fall back to PERSONIO_* env vars.
  *
  * Credentials come from .env (PERSONIO_CLIENT_ID / PERSONIO_CLIENT_SECRET).
  */
@@ -32,6 +36,7 @@ import {
   type SourceKind,
 } from '../src/index.js';
 import { parseArgs, requireString } from './lib/args.js';
+import { loadExampleConfig } from './lib/config.js';
 import {
   ABSENCE_HEADERS,
   ABSENCE_SHEET_NAME,
@@ -44,28 +49,18 @@ import { buildSheetWorkbook, writeWorkbook } from './lib/xlsx.js';
 
 type ExportType = 'attendance' | 'absence' | 'both';
 
-/**
- * German localization for the raw v2 status enums, matching the labels the
- * legacy Custom Report Excel export shows in the "Status des
- * Abwesenheitszeitraums" column. This is an output format, not library logic —
- * it lives in the example and is passed to both sources via `statusLabels` so
- * the export reaches 1:1 parity with the reference report regardless of source
- * (the API source carries raw enums, the Reporting-v2 read carries English
- * labels — both normalize to the same key). Values without an entry pass
- * through unchanged.
- */
-const STATUS_LABELS_DE: Record<string, string> = {
-  APPROVED: 'Genehmigt',
-  PENDING: 'Ausstehend',
-  REJECTED: 'Abgelehnt',
-};
-
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const range: DateRange = { from: requireString(args, 'from'), to: requireString(args, 'to') };
   const type = (args.type ?? 'both') as ExportType;
   const outDir = typeof args.out === 'string' ? args.out : '.';
-  const reportId = process.env.PERSONIO_REPORT_ID;
+
+  // Non-secret account/locale config: --config file > PERSONIO_* env > defaults.
+  const cfg = loadExampleConfig({ configPath: args.config });
+  const reportId = cfg.reportId;
+  const fields = cfg.personnelFieldIds
+    ? { personnelNumberFields: cfg.personnelFieldIds }
+    : undefined;
 
   const sourceArg = args.source;
   const kind: SourceKind = resolveSourceKind({
@@ -83,16 +78,19 @@ async function main(): Promise<void> {
   const source = createSource(client, {
     kind,
     api: {
-      // Localize the raw v2 status enums to the German report labels so the
+      // Localize the raw v2 status enums to the configured report labels so the
       // API-sourced export matches the reference report.
-      statusLabels: STATUS_LABELS_DE,
+      statusLabels: cfg.statusLabels,
       fetchAbsenceBreakdowns,
+      // Resolve the account's opaque personnel-number custom field by id (from
+      // the config file or PERSONIO_PERSONNEL_FIELD_IDS); else library defaults.
+      fields,
     },
     // The Reporting-v2 read returns English option labels ("Approved") for the
     // absence status, so localize it the same way — one map serves both sources
     // (normalized to the enum key before lookup).
     report: reportId
-      ? { reportId, filterByRange: true, statusLabels: STATUS_LABELS_DE }
+      ? { reportId, filterByRange: true, statusLabels: cfg.statusLabels }
       : undefined,
   });
 

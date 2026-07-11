@@ -12,9 +12,14 @@
  *   --from <YYYY-MM-DD>        range start (required)
  *   --to   <YYYY-MM-DD>        range end (required)
  *   --cost-centers <list>      optional comma-separated cost-center pre-filter
- *   --source api|report        data source (default: report if PERSONIO_REPORT_ID set)
+ *                              (overrides costCenters from the config file)
+ *   --source api|report        data source (default: report if a reportId is set)
  *   --out <file>               snapshot JSON output path (default: snapshot.json)
  *   --inject-html <path>       optional dashboard HTML to inject the snapshot into
+ *   --config <path>            optional JSON file with non-secret account config
+ *                              (reportId, personnelFieldIds, costCenters); see
+ *                              personio.config.example.json. Values also fall
+ *                              back to PERSONIO_* env vars.
  *
  * The snapshot file carries an audit-trail header (period, source, report id,
  * timestamp). Credentials come from .env; no secrets are written to the output.
@@ -31,15 +36,24 @@ import {
   type SourceKind,
 } from '../src/index.js';
 import { parseArgs, parseList, requireString } from './lib/args.js';
+import { loadExampleConfig } from './lib/config.js';
 import { toDashboardRecord } from './lib/dashboard.js';
 import { injectSnapshot, type Snapshot } from './lib/inject.js';
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const range: DateRange = { from: requireString(args, 'from'), to: requireString(args, 'to') };
-  const costCenters = parseList(args['cost-centers']);
   const outPath = typeof args.out === 'string' ? args.out : 'snapshot.json';
-  const reportId = process.env.PERSONIO_REPORT_ID ?? null;
+
+  // Non-secret account config: --config file > PERSONIO_* env > defaults. A
+  // `--cost-centers` flag, being per-run, overrides the config file's default.
+  const cfg = loadExampleConfig({ configPath: args.config });
+  const reportId = cfg.reportId ?? null;
+  const cliCostCenters = parseList(args['cost-centers']);
+  const costCenters = cliCostCenters.length ? cliCostCenters : cfg.costCenters;
+  const fields = cfg.personnelFieldIds
+    ? { personnelNumberFields: cfg.personnelFieldIds }
+    : undefined;
 
   const sourceArg = args.source;
   const kind: SourceKind = resolveSourceKind({
@@ -50,12 +64,15 @@ async function main(): Promise<void> {
   const client = new PersonioClient(configFromEnv());
   const source = createSource(client, {
     kind,
+    // Resolve the account's opaque personnel-number custom field by id (from the
+    // config file or PERSONIO_PERSONNEL_FIELD_IDS); else the library defaults.
+    api: { fields },
     report: reportId ? { reportId, filterByRange: true } : undefined,
   });
 
   const records = await new AttendanceService(source).getRecords({
     ...range,
-    costCenters: costCenters.length ? costCenters : undefined,
+    costCenters: costCenters?.length ? costCenters : undefined,
   });
   const data = records.map(toDashboardRecord);
 

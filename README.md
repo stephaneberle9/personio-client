@@ -143,6 +143,10 @@ new ApiSource(client, {
 });
 ```
 
+The bundled example scripts read this personnel-number id from the
+`PERSONIO_PERSONNEL_FIELD_IDS` environment variable (see `.env.example`), so you
+can point them at your account without editing code.
+
 ### Status label mapping
 
 The v2 API returns raw status enums (`APPROVED`, `PENDING`, `REJECTED`, …) on
@@ -196,6 +200,30 @@ const source = createSource(client, {
 
 Run with [`tsx`](https://github.com/privatenumber/tsx) (a dev dependency).
 
+### Configuration
+
+The examples separate three kinds of input:
+
+- **Secrets** (`PERSONIO_CLIENT_ID` / `PERSONIO_CLIENT_SECRET`) — always in `.env`.
+- **Per-run parameters** (`--from`, `--to`, `--type`, `--source`, `--out`, …) —
+  CLI flags, since they change every run.
+- **Non-secret account/locale config** (`reportId`, `personnelFieldIds`,
+  `statusLabels`, default `costCenters`) — constant for an account, so it lives
+  in one optional JSON file passed with `--config`. Copy
+  [`personio.config.example.json`](personio.config.example.json) to
+  `personio.config.json` (gitignored) and fill in your account's values:
+
+  ```bash
+  tsx examples/export-xlsx.ts --from 2026-06-01 --to 2026-06-30 \
+    --type both --source api --out ./out \
+    --config ./personio.config.json
+  ```
+
+  Each of those values also falls back to a `PERSONIO_*` environment variable
+  (`PERSONIO_REPORT_ID`, `PERSONIO_PERSONNEL_FIELD_IDS`) — convenient for
+  server-side use where a file is awkward. Precedence is **config file >
+  environment > built-in default**, so `--config` is entirely optional.
+
 ### Excel export
 
 Reproduces the reference report format exactly (sheet names, header order, and
@@ -210,7 +238,8 @@ tsx examples/export-xlsx.ts \
 ```
 
 - `--type attendance|absence|both` (default `both`)
-- `--source api|report` (default: `report` if `PERSONIO_REPORT_ID` is set, else `api`)
+- `--source api|report` (default: `report` if a `reportId` is configured, else `api`)
+- `--config <path>` — optional account/locale config (see [Configuration](#configuration))
 
 ### Dashboard snapshot
 
@@ -227,9 +256,12 @@ tsx examples/generate-snapshot.ts \
   --inject-html ./dashboard.html
 ```
 
-All account-specific values (cost centers, dashboard path) are **arguments** —
-nothing is hardcoded. With `--inject-html`, a clearly marked block is inserted/
-replaced; the page's manual Excel-import path keeps working as a fallback.
+Nothing account-specific is hardcoded: per-run values (cost centers, dashboard
+path) are **arguments**, and constant account config comes from `--config` or
+`PERSONIO_*` env vars (see [Configuration](#configuration)). A `--cost-centers`
+flag overrides the config file's default. With `--inject-html`, a clearly marked
+block is inserted/replaced; the page's manual Excel-import path keeps working as
+a fallback.
 
 ## How hours are computed
 
