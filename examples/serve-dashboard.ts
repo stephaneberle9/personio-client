@@ -23,7 +23,7 @@
  * person at the machine, and reads credentials from `.env` that never leave the
  * Node process. Do not add remote binding, auth, or multi-tenant config — that is
  * a different (and explicitly ruled-out) architecture. Every successful pull also
- * writes an audit copy to `out/snapshot_<timestamp>.json`.
+ * writes an audit copy to `audit/snapshot_<timestamp>.json`.
  */
 import 'dotenv/config';
 import { spawn } from 'node:child_process';

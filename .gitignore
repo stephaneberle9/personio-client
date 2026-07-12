@@ -18,6 +18,7 @@ personio.config.json
 *.snapshot.json
 snapshot.json
 out/
+audit/
 *.xlsx
 
 # Editor / OS

@@ -296,7 +296,7 @@ Endpoints:
   pull, returning `{ records, meta }` as JSON. On failure it returns a JSON error
   body with an appropriate status, preserving the library's scope-aware error
   hints instead of a bare 500. Every successful pull also writes an audit copy to
-  `out/snapshot_<timestamp>.json`.
+  `audit/snapshot_<timestamp>.json`.
 
 This server is **local-only by design**: it binds to `127.0.0.1`, serves the one
 person at the machine, and reads credentials from `.env` that never leave the

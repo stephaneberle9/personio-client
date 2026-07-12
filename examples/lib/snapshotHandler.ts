@@ -120,12 +120,12 @@ function toErrorResult(error: unknown): SnapshotRequestResult {
 }
 
 /**
- * Write an audit copy of the snapshot to `out/snapshot_<timestamp>.json`,
+ * Write an audit copy of the snapshot to `audit/snapshot_<timestamp>.json`,
  * mirroring the file trail `generate-snapshot.ts` leaves. The ISO timestamp's
  * `:` and `.` are replaced with `-` so the name is valid on Windows too. Returns
  * the path written.
  */
-export function writeAuditCopy(snapshot: Snapshot, outDir = 'out'): string {
+export function writeAuditCopy(snapshot: Snapshot, outDir = 'audit'): string {
   const stamp = snapshot.meta.generatedAt.replace(/[:.]/g, '-');
   mkdirSync(outDir, { recursive: true });
   const path = join(outDir, `snapshot_${stamp}.json`);

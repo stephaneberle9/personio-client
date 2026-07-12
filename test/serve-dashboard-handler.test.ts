@@ -109,7 +109,7 @@ describe('handleSnapshotRequest', () => {
 });
 
 describe('writeAuditCopy', () => {
-  it('writes out/snapshot_<timestamp>.json with a Windows-safe (colon-free) name', () => {
+  it('writes audit/snapshot_<timestamp>.json with a Windows-safe (colon-free) name', () => {
     const dir = mkdtempSync(join(tmpdir(), 'serve-dashboard-'));
     const path = writeAuditCopy(snapshot, dir);
 
