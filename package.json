@@ -28,6 +28,8 @@
   "types": "./dist/index.d.ts",
   "files": [
     "dist",
+    "src",
+    "examples",
     "README.md",
     "LICENSE"
   ],
