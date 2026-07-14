@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import * as XLSX from 'xlsx';
 import type { Cell } from './model/sheetContent.js';
 
@@ -33,5 +34,10 @@ export function readHeaderRow(workbook: XLSX.WorkBook): string[] {
 }
 
 export function writeWorkbook(workbook: XLSX.WorkBook, path: string): void {
-  XLSX.writeFile(workbook, path);
+  // The SheetJS ESM build is browser-safe and does not wire Node's fs, so
+  // `XLSX.writeFile` throws "cannot save file". Serialize to a buffer and write
+  // it with node:fs instead — the same approach scripts/compare-xlsx.ts uses on
+  // the read side (`XLSX.read(readFileSync(...))`).
+  const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+  writeFileSync(path, buffer);
 }

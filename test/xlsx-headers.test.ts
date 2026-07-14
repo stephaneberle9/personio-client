@@ -1,5 +1,8 @@
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import * as XLSX from 'xlsx';
 import { describe, expect, it } from 'vitest';
 import {
   ABSENCE_HEADERS,
@@ -10,7 +13,7 @@ import {
   attendanceRow,
   absenceRow,
 } from '../examples/lib/model/sheetContent.js';
-import { buildSheetWorkbook, readHeaderRow } from '../examples/lib/xlsxBuilder.js';
+import { buildSheetWorkbook, readHeaderRow, writeWorkbook } from '../examples/lib/xlsxBuilder.js';
 import type { AbsenceRecord, AttendanceRecord } from '../src/index.js';
 
 /** Ground truth captured from the reference spreadsheets (header labels only). */
@@ -70,5 +73,17 @@ describe('Excel header equality with the reference format', () => {
     const range = { from: '2026-04-01', to: '2026-04-30' };
     const wb = buildSheetWorkbook(ABSENCE_SHEET_NAME, ABSENCE_HEADERS, [absenceRow(record, range)]);
     expect(readHeaderRow(wb)).toEqual([...ABSENCE_HEADERS]);
+  });
+
+  // Regression guard: the SheetJS ESM build does not wire Node's fs, so
+  // XLSX.writeFile throws "cannot save file". writeWorkbook must write via
+  // node:fs instead. This test actually hits the disk — the in-memory
+  // round-trips above never exercised the write path.
+  it('writes a workbook to disk and reads its header row back', () => {
+    const wb = buildSheetWorkbook(ATTENDANCE_SHEET_NAME, ATTENDANCE_HEADERS, []);
+    const path = join(mkdtempSync(join(tmpdir(), 'xlsx-write-')), 'attendance.xlsx');
+    writeWorkbook(wb, path);
+    const roundTrip = XLSX.read(readFileSync(path), { type: 'buffer' });
+    expect(readHeaderRow(roundTrip)).toEqual([...ATTENDANCE_HEADERS]);
   });
 });
