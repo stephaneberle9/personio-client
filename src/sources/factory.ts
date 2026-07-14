@@ -9,7 +9,7 @@ export type SourceKind = 'api' | 'report';
 export interface SourceSelection {
   /**
    * Force a source. When omitted, defaults to `report` if a `reportId` is
-   * configured, otherwise `api` (concept §5 default strategy).
+   * configured, otherwise `api`.
    */
   kind?: SourceKind;
   api?: ApiSourceOptions;

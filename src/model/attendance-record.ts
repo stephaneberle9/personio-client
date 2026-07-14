@@ -1,6 +1,6 @@
 /**
- * Normalized attendance row — the stable exchange format of the library
- * (concept §6). Both data sources (granular API and Custom Report) produce
+ * Normalized attendance row — the stable exchange format of the library.
+ * Both data sources (granular API and Custom Report) produce
  * this shape, and every consumer (Excel export, dashboard snapshot) maps *from*
  * it. Field names are neutral English; output-specific labels live in the
  * example scripts.

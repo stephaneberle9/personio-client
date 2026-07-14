@@ -143,7 +143,7 @@ class ColumnResolver {
 }
 
 /**
- * Custom Report data source (concept §5): reproduces the normalized records
+ * Custom Report data source: reproduces the normalized records
  * directly from a preconfigured Personio Custom Report, mapping report columns
  * (including `dynamic_<id>` columns resolved to labels) onto the record fields.
  * Fast and exact, but dependent on the report's configuration.

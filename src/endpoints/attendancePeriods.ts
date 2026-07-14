@@ -8,7 +8,7 @@ import type {
 
 export type AttendanceStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED';
 
-/** Filters for `GET /v2/attendance-periods` (concept §4.1). */
+/** Filters for `GET /v2/attendance-periods`. */
 export interface AttendancePeriodFilters {
   /** One or more `person.id` values. */
   personIds?: string[];

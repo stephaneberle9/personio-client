@@ -8,10 +8,12 @@
  * which is handy server-side where shipping a file is awkward. Precedence:
  * config file > environment > built-in default.
  *
- * Two values (`reportId`, `costCenters`) are account-scoped but *selected per
- * run* — an account has several reports and cost centers, and each run picks
- * one. The examples let a `--report-id` / `--cost-centers` flag override the
- * default resolved here, for that invocation only.
+ * Attendance and absences come from *different* Custom Reports, so the report id
+ * is split per record type (`attendanceReportId` / `absenceReportId`) — a single
+ * shared id would be silently wrong for one of them (the dashboard serves both at
+ * once). `costCenters` is likewise account-scoped but selected per run. The
+ * examples let `--attendance-report-id` / `--absence-report-id` / `--cost-centers`
+ * flags override the defaults resolved here, for that invocation only.
  */
 import { readFileSync } from 'node:fs';
 import { parseList } from './args.js';
@@ -19,11 +21,18 @@ import { parseList } from './args.js';
 /** Shape of the optional `personio.config.json` file (all keys optional). */
 export interface ExampleConfig {
   /**
-   * Default Custom Report id for the ReportSource (env: `PERSONIO_REPORT_ID`).
-   * Account-scoped but selected per run — an account has several reports — so a
-   * `--report-id` CLI flag overrides this default for a given invocation.
+   * Default attendance Custom Report id for the ReportSource
+   * (env: `PERSONIO_ATTENDANCE_REPORT_ID`). Overridable per run with
+   * `--attendance-report-id`.
    */
-  reportId?: string;
+  attendanceReportId?: string;
+  /**
+   * Default absence Custom Report id for the ReportSource
+   * (env: `PERSONIO_ABSENCE_REPORT_ID`). Overridable per run with
+   * `--absence-report-id`. Distinct from {@link attendanceReportId}: the two
+   * record types live in different reports.
+   */
+  absenceReportId?: string;
   /**
    * The account's opaque personnel-number ("Kostenträger Nummer") custom-field
    * id(s); first match wins (env: `PERSONIO_PERSONNEL_FIELD_IDS`).
@@ -50,7 +59,8 @@ export const DEFAULT_STATUS_LABELS_DE: Record<string, string> = {
 
 /** Example configuration with environment fallbacks and defaults applied. */
 export interface ResolvedExampleConfig {
-  reportId?: string;
+  attendanceReportId?: string;
+  absenceReportId?: string;
   personnelFieldIds?: string[];
   statusLabels: Record<string, string>;
   costCenters?: string[];
@@ -95,7 +105,8 @@ export function loadExampleConfig(
   const filePersonnel = file.personnelFieldIds?.length ? file.personnelFieldIds : undefined;
 
   return {
-    reportId: file.reportId ?? env.PERSONIO_REPORT_ID ?? undefined,
+    attendanceReportId: file.attendanceReportId ?? env.PERSONIO_ATTENDANCE_REPORT_ID ?? undefined,
+    absenceReportId: file.absenceReportId ?? env.PERSONIO_ABSENCE_REPORT_ID ?? undefined,
     personnelFieldIds: filePersonnel ?? (envPersonnel.length ? envPersonnel : undefined),
     statusLabels: file.statusLabels ?? DEFAULT_STATUS_LABELS_DE,
     costCenters: file.costCenters,

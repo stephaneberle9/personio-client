@@ -4,7 +4,7 @@ import { setupServer } from 'msw/node';
 import { PersonioClient } from '../src/client.js';
 import { ApiSource } from '../src/sources/api-source.js';
 import { AttendanceService } from '../src/domain/attendance-service.js';
-import { toDashboardRecord } from '../examples/lib/model/dashboard.js';
+import { toAttendanceDisplayRecord } from '../examples/lib/model/displayRecords.js';
 
 const BASE = 'https://api.personio.test';
 
@@ -134,21 +134,21 @@ describe('ApiSource attendance mapping', () => {
     expect(day2).toMatchObject({ date: '2026-06-02', hours: 4 });
   });
 
-  it('maps an AttendanceRecord to the dashboard record format', async () => {
+  it('maps an AttendanceRecord to the English attendance display record', async () => {
     const service = new AttendanceService(new ApiSource(makeClient()));
     const [record] = await service.getRecords({ from: '2026-06-01', to: '2026-06-30' });
 
-    expect(toDashboardRecord(record!)).toEqual({
-      datum: '2026-06-01',
-      ma: 'Schmidt, Anna',
-      kunde: 'Acme',
-      kst: '50101 Alten GmbH',
-      projekt: 'Parent Program',
-      up: 'Website Relaunch',
-      std: 7.5,
-      kommentar: 'Did stuff',
-      startdatum: '2026-01-01',
-      enddatum: '2026-12-31',
+    expect(toAttendanceDisplayRecord(record!)).toEqual({
+      date: '2026-06-01',
+      employee: 'Schmidt, Anna',
+      customer: 'Acme',
+      costCenter: '50101 Alten GmbH',
+      project: 'Parent Program',
+      subProject: 'Website Relaunch',
+      hours: 7.5,
+      comment: 'Did stuff',
+      projectStart: '2026-01-01',
+      projectEnd: '2026-12-31',
     });
   });
 

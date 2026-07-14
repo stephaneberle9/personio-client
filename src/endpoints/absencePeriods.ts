@@ -7,7 +7,7 @@ import {
   type AbsencePeriod,
 } from '../schemas/index.js';
 
-/** Filters for `GET /v2/absence-periods` (concept §4.2). */
+/** Filters for `GET /v2/absence-periods`. */
 export interface AbsencePeriodFilters {
   personIds?: string[];
   absenceTypeIds?: string[];

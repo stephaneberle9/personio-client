@@ -1,4 +1,4 @@
-import type { Snapshot } from './snapshotBuilder.js';
+import type { Snapshot } from './model/snapshotData.js';
 
 const START = '<!-- PERSONIO_SNAPSHOT:START (generated block — safe to replace) -->';
 const END = '<!-- PERSONIO_SNAPSHOT:END -->';
@@ -15,9 +15,9 @@ function escapeForScript(json: string): string {
  * later scripts, exactly as the dashboard's `typeof __PRELOADED_DATA__` check
  * expects — and it leaves the page's manual Excel import untouched.
  */
-export function buildSnapshotBlock(snapshot: Snapshot): string {
-  const dataJson = escapeForScript(JSON.stringify(snapshot.records));
-  const metaJson = escapeForScript(JSON.stringify(snapshot.meta));
+export function buildSnapshotBlock(data: Snapshot): string {
+  const dataJson = escapeForScript(JSON.stringify(data.records));
+  const metaJson = escapeForScript(JSON.stringify(data.meta));
   return [
     START,
     `<script>/* Personio snapshot — ${metaJson} */`,
@@ -33,10 +33,10 @@ export function buildSnapshotBlock(snapshot: Snapshot): string {
  * previously generated block is present (between the markers), it is replaced;
  * otherwise the block is inserted before `</head>`, falling back to `</body>`
  * or appending. No other part of the HTML is modified, so the page's existing
- * Excel-import path keeps working as a manual fallback (concept §8).
+ * Excel-import path keeps working as a manual fallback.
  */
-export function injectSnapshot(html: string, snapshot: Snapshot): string {
-  const block = buildSnapshotBlock(snapshot);
+export function injectSnapshot(html: string, data: Snapshot): string {
+  const block = buildSnapshotBlock(data);
 
   const startIdx = html.indexOf(START);
   const endIdx = html.indexOf(END);

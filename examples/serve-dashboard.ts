@@ -1,8 +1,8 @@
 /**
- * Example: serve the dashboard snapshot on demand from a small local HTTP server,
- * so a browser page can trigger a live Personio pull by clicking a button instead
- * of running `generate-snapshot.ts` beforehand. Same snapshot-building pipeline
- * ({@link buildSnapshot}), just exposed as an endpoint.
+ * Example: serve the dashboard data on demand from a small local HTTP server, so a
+ * browser page can trigger a live Personio pull by clicking a button instead of
+ * running `generate-snapshot.ts` beforehand. Same record-building pipeline
+ * ({@link buildAttendanceDisplayRecords}), just exposed as an endpoint.
  *
  *   tsx examples/serve-dashboard.ts --html ./dashboard.html --config personio.config.json
  *
@@ -12,18 +12,25 @@
  *   --cost-centers <list>  optional comma-separated cost-center pre-filter
  *                          (overrides costCenters from the config file)
  *   --config <path>        optional JSON file with non-secret account config
- *                          (reportId, personnelFieldIds, costCenters); values
- *                          also fall back to PERSONIO_* env vars.
+ *                          (attendanceReportId, absenceReportId, personnelFieldIds,
+ *                          costCenters); values also fall back to PERSONIO_* env
+ *                          vars. Leave a report id unset to serve that card from
+ *                          the granular v2 API instead of a Custom Report.
  *
  * Endpoints:
- *   GET /                                   → the HTML file passed via --html
- *   GET /api/snapshot?from=&to=&source=     → live pull, returns { records, meta }
+ *   GET /                                     → the HTML file passed via --html
+ *   GET /api/attendance?from=&to=&source=     → live attendance pull, { records }
+ *   GET /api/absences?from=&to=&source=       → live absences pull, { records }
+ *
+ * `examples/dashboard.html` is the ready-made dashboard for both endpoints: two
+ * independent cards (Attendance + Absences), each loading and surfacing errors on
+ * its own. Pass it via `--html examples/dashboard.html`.
  *
  * This server is deliberately local-only: it binds to 127.0.0.1, serves the one
  * person at the machine, and reads credentials from `.env` that never leave the
  * Node process. Do not add remote binding, auth, or multi-tenant config — that is
- * a different (and explicitly ruled-out) architecture. Every successful pull also
- * writes an audit copy to `audit/snapshot_<timestamp>.json`.
+ * a different (and explicitly ruled-out) architecture. It is a live view: the
+ * audit-trail artifact (with provenance `meta`) is `generate-snapshot.ts`'s job.
  */
 import 'dotenv/config';
 import { spawn } from 'node:child_process';
@@ -33,10 +40,10 @@ import { PersonioClient, configFromEnv } from '../src/index.js';
 import { parseArgs, parseList, requireString } from './lib/args.js';
 import { loadExampleConfig } from './lib/config.js';
 import {
-  handleSnapshotRequest,
-  writeAuditCopy,
-  type SnapshotHandlerContext,
-} from './lib/snapshotHandler.js';
+  handleAttendanceRequest,
+  handleAbsencesRequest,
+  type DashboardHandlerContext,
+} from './lib/dashboardHandler.js';
 
 /** Local-only by design — never bind a routable interface (e.g. 0.0.0.0). */
 const HOST = '127.0.0.1';
@@ -97,8 +104,11 @@ function main(): void {
 
   // Build the client once; every request reuses it (and its in-memory token).
   const client = new PersonioClient(configFromEnv());
-  const context: SnapshotHandlerContext = {
-    reportId: cfg.reportId ?? null,
+  const context: DashboardHandlerContext = {
+    // Attendance and absences come from different reports; each endpoint uses its
+    // own id (either may be unset → that card falls back to the granular v2 API).
+    attendanceReportId: cfg.attendanceReportId ?? null,
+    absenceReportId: cfg.absenceReportId ?? null,
     personnelFieldIds: cfg.personnelFieldIds,
     costCenters,
     client,
@@ -117,18 +127,31 @@ function main(): void {
       return;
     }
 
-    if (url.pathname === '/api/snapshot') {
-      handleSnapshotRequest(url.searchParams, context, {
-        onSuccess: (snapshot) => {
-          const path = writeAuditCopy(snapshot);
-          console.log(`  ↳ ${snapshot.meta.count} records, audit copy → ${path}`);
-        },
+    if (url.pathname === '/api/attendance') {
+      handleAttendanceRequest(url.searchParams, context, {
+        onSuccess: (records, { source }) =>
+          console.log(`  ↳ ${records.length} attendance records (source: ${source})`),
       })
         .then((result) => sendJson(res, result.status, result.body))
         .catch((error) => {
-          // handleSnapshotRequest catches Personio failures itself; reaching here
-          // means an unexpected fault (e.g. the audit write). Never let it crash
-          // the server or leak a stack trace to the client.
+          // handleAttendanceRequest catches Personio failures itself; reaching here
+          // means an unexpected fault. Never let it crash the server or leak a
+          // stack trace to the client.
+          console.error(error);
+          sendJson(res, 500, {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      return;
+    }
+
+    if (url.pathname === '/api/absences') {
+      handleAbsencesRequest(url.searchParams, context, {
+        onSuccess: (records, { source }) =>
+          console.log(`  ↳ ${records.length} absence records (source: ${source})`),
+      })
+        .then((result) => sendJson(res, result.status, result.body))
+        .catch((error) => {
           console.error(error);
           sendJson(res, 500, {
             error: error instanceof Error ? error.message : String(error),
@@ -146,8 +169,9 @@ function main(): void {
     // IPv4-only listener. `http://localhost:<port>` still works for the user.
     const url = `http://${HOST}:${port}`;
     console.log(`serve-dashboard listening on ${url} (serving ${htmlPath})`);
-    console.log('  GET /                              → the dashboard HTML');
-    console.log('  GET /api/snapshot?from=&to=&source= → live Personio pull as JSON');
+    console.log('  GET /                                → the dashboard HTML');
+    console.log('  GET /api/attendance?from=&to=&source= → live attendance pull as JSON');
+    console.log('  GET /api/absences?from=&to=&source=   → live absences pull as JSON');
     openBrowser(url);
   });
 }

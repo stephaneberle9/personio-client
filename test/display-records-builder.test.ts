@@ -2,7 +2,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { PersonioClient } from '../src/client.js';
-import { buildSnapshot } from '../examples/lib/snapshotBuilder.js';
+import {
+  buildAttendanceDisplayRecords,
+  buildAbsenceDisplayRecords,
+} from '../examples/lib/displayRecordsBuilder.js';
 
 const BASE = 'https://api.personio.test';
 
@@ -19,6 +22,19 @@ const projects = [
   },
 ];
 const costCenters = [{ id: 'cc1', name: '50101 Alten GmbH' }];
+const absenceTypes = [{ id: 't1', name: 'Vacation', category: 'PAID', unit: 'DAY' }];
+const absencePeriods = [
+  {
+    id: 'ab1', person: { id: 'p1' },
+    starts_from: { date_time: '2026-06-10T00:00:00Z' },
+    ends_at: { date_time: '2026-06-12T00:00:00Z' },
+    absence_type: { id: 't1' }, approval: { status: 'APPROVED' }, comment: 'Trip',
+  },
+];
+const breakdowns = [
+  { date: '2026-06-10', effective_duration: { unit: 'DAY', value: 1 } },
+  { date: '2026-06-11', effective_duration: { unit: 'DAY', value: 1 } },
+];
 const periods = [
   {
     id: 'a1', type: 'WORK', person: { id: 'p1' }, project: { id: 'prj1' },
@@ -43,7 +59,12 @@ const server = setupServer(
   }),
   http.get(`${BASE}/v2/projects`, () => HttpResponse.json({ _data: projects })),
   http.get(`${BASE}/v2/persons`, () => HttpResponse.json({ _data: persons })),
-  http.get(`${BASE}/v2/cost-centers`, () => HttpResponse.json({ _data: costCenters }))
+  http.get(`${BASE}/v2/cost-centers`, () => HttpResponse.json({ _data: costCenters })),
+  http.get(`${BASE}/v2/absence-periods`, () => HttpResponse.json({ _data: absencePeriods })),
+  http.get(`${BASE}/v2/absence-types`, () => HttpResponse.json({ _data: absenceTypes })),
+  http.get(`${BASE}/v2/absence-periods/:id/breakdowns`, () =>
+    HttpResponse.json({ _data: breakdowns })
+  )
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -54,9 +75,9 @@ function makeClient() {
   return new PersonioClient({ clientId: 'id', clientSecret: 'secret', baseUrl: BASE });
 }
 
-describe('buildSnapshot', () => {
-  it('builds dashboard records plus an audit meta block from the api source', async () => {
-    const { records, meta } = await buildSnapshot({
+describe('buildAttendanceDisplayRecords', () => {
+  it('builds English attendance display records from the api source', async () => {
+    const records = await buildAttendanceDisplayRecords({
       from: '2026-06-01',
       to: '2026-06-30',
       source: 'api',
@@ -65,43 +86,22 @@ describe('buildSnapshot', () => {
 
     expect(records).toEqual([
       {
-        datum: '2026-06-01',
-        ma: 'Schmidt, Anna',
-        kunde: 'Acme',
-        kst: '50101 Alten GmbH',
-        projekt: 'Website Relaunch',
-        up: '',
-        std: 4,
-        kommentar: 'Did stuff',
-        startdatum: '2026-01-01',
-        enddatum: '2026-12-31',
+        date: '2026-06-01',
+        employee: 'Schmidt, Anna',
+        customer: 'Acme',
+        costCenter: '50101 Alten GmbH',
+        project: 'Website Relaunch',
+        subProject: '',
+        hours: 4,
+        comment: 'Did stuff',
+        projectStart: '2026-01-01',
+        projectEnd: '2026-12-31',
       },
     ]);
-    expect(meta).toMatchObject({
-      from: '2026-06-01',
-      to: '2026-06-30',
-      source: 'api',
-      reportId: null,
-      count: 1,
-    });
-    // generatedAt is a valid ISO timestamp.
-    expect(Number.isNaN(Date.parse(meta.generatedAt))).toBe(false);
-  });
-
-  it('never records a reportId in the audit trail for an api-source pull', async () => {
-    // A leftover reportId must not leak into an api-source snapshot's meta.
-    const { meta } = await buildSnapshot({
-      from: '2026-06-01',
-      to: '2026-06-30',
-      source: 'api',
-      reportId: 'leftover-report-id',
-      client: makeClient(),
-    });
-    expect(meta.reportId).toBeNull();
   });
 
   it('applies the optional cost-center pre-filter', async () => {
-    const { records, meta } = await buildSnapshot({
+    const records = await buildAttendanceDisplayRecords({
       from: '2026-06-01',
       to: '2026-06-30',
       source: 'api',
@@ -109,6 +109,19 @@ describe('buildSnapshot', () => {
       client: makeClient(),
     });
     expect(records).toHaveLength(0);
-    expect(meta.count).toBe(0);
+  });
+});
+
+describe('buildAbsenceDisplayRecords', () => {
+  it('builds English absence display records with days resolved from breakdowns', async () => {
+    const records = await buildAbsenceDisplayRecords({
+      from: '2026-06-01', to: '2026-06-30', source: 'api', client: makeClient(),
+    });
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      startDate: '2026-06-10', employee: 'Schmidt, Anna', department: '',
+      type: 'Vacation', days: 2, status: 'APPROVED',
+    });
+    expect(records[0]!.endDate).toMatch(/^2026-06-\d{2}$/);
   });
 });

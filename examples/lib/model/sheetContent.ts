@@ -149,7 +149,7 @@ function textCell(value: string): Cell {
 /** Map an {@link AttendanceRecord} to one attendance row, aligned to the headers. */
 export function attendanceRow(record: AttendanceRecord, range: DateRange): Cell[] {
   return [
-    dateCell(range.from), // Startdatum (the query range, per concept §10)
+    dateCell(range.from), // Startdatum (the query range)
     dateCell(range.to), // Enddatum
     personnelNumberCell(record.personnelNumber),
     textCell(record.lastName),

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Personio Dashboard — example</title>
+<style>
+  :root { --fg:#1a1a1a; --mut:#666; --br:#e2e2e2; --bg:#fff; --accent:#2563eb;
+          --ok:#16a34a; --err:#dc2626; --errbg:#fef2f2; --head:#f7f7f8; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+         color:var(--fg); background:#fafafa; padding:24px; }
+  h1 { font-size:20px; margin:0 0 2px; }
+  .sub { color:var(--mut); margin:0 0 20px; }
+  .bar { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;
+         background:var(--bg); border:1px solid var(--br); border-radius:10px;
+         padding:14px 16px; margin-bottom:20px; }
+  .bar label { display:block; font-size:12px; color:var(--mut); margin-bottom:4px; }
+  .bar input[type=date] { font:inherit; padding:5px 8px; border:1px solid var(--br); border-radius:6px; }
+  button { font:inherit; font-weight:600; cursor:pointer; border:none; border-radius:6px;
+           padding:7px 16px; background:var(--accent); color:#fff; }
+  button:disabled { opacity:.6; cursor:default; }
+  .card { background:var(--bg); border:1px solid var(--br); border-radius:10px;
+          margin-bottom:20px; overflow:hidden; }
+  .card > header { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+                   padding:12px 16px; border-bottom:1px solid var(--br); }
+  .card > header h2 { font-size:15px; margin:0; }
+  .status { font-size:12px; color:var(--mut); }
+  .status.ok { color:var(--ok); }
+  .body { padding:0; }
+  .msg { margin:14px 16px; padding:10px 12px; border-radius:8px; font-size:13px; }
+  .msg.err { background:var(--errbg); border:1px solid #fca5a5; color:var(--err); }
+  .msg.info { color:var(--mut); }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { text-align:left; padding:7px 12px; border-bottom:1px solid var(--br); white-space:nowrap; }
+  th { background:var(--head); font-weight:600; position:sticky; top:0; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .scroll { max-height:340px; overflow:auto; }
+  code { background:#f0f0f0; padding:1px 4px; border-radius:4px; font-size:12px; }
+  footer { color:var(--mut); font-size:12px; margin-top:8px; }
+</style>
+</head>
+<body>
+  <h1>Personio Dashboard <span style="color:var(--mut);font-weight:400">— example</span></h1>
+  <p class="sub">Generic example for <code>examples/serve-dashboard.ts</code>. Pick a date range and load
+     attendance and absences live from Personio. Each card loads independently, so if your API
+     credential is missing a scope for one of them, that card shows the library's error while the
+     other still works.</p>
+
+  <div class="bar">
+    <div><label for="from">From</label><input type="date" id="from" /></div>
+    <div><label for="to">To</label><input type="date" id="to" /></div>
+    <button id="load">Load from Personio</button>
+    <span id="hint" class="status"></span>
+  </div>
+
+  <section class="card" id="card-att">
+    <header><h2>Attendance</h2><span class="status" data-status></span></header>
+    <div class="body" data-body></div>
+  </section>
+
+  <section class="card" id="card-abs">
+    <header><h2>Absences</h2><span class="status" data-status></span></header>
+    <div class="body" data-body></div>
+  </section>
+
+  <footer>
+    Served locally by <code>serve-dashboard.ts</code> (127.0.0.1). Credentials stay in the server's
+    <code>.env</code> and never reach the browser. Error messages shown here come straight from
+    <code>@stephaneberle9/personio-client</code>, including its scope-aware hints.
+  </footer>
+
+<script>
+"use strict";
+
+const ATTENDANCE_COLUMNS = [
+  { key: "date", label: "Date" },
+  { key: "employee", label: "Employee" },
+  { key: "customer", label: "Customer" },
+  { key: "costCenter", label: "Cost center" },
+  { key: "project", label: "Project" },
+  { key: "subProject", label: "Sub-project" },
+  { key: "hours", label: "Hours", num: true },
+  { key: "comment", label: "Comment" },
+];
+const ABSENCE_COLUMNS = [
+  { key: "startDate", label: "Start" },
+  { key: "endDate", label: "End" },
+  { key: "employee", label: "Employee" },
+  { key: "department", label: "Department" },
+  { key: "type", label: "Type" },
+  { key: "days", label: "Days", num: true },
+  { key: "status", label: "Status" },
+];
+
+// Both endpoints return neutral, English-keyed display records that match the
+// column keys above, so this page renders them directly — no field mapping.
+// (A consumer-specific localized shape, e.g. the German SnapshotRecord, is
+// produced only by generate-snapshot.ts, never served by the API.)
+
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  if (attrs) for (const k in attrs) {
+    if (k === "class") node.className = attrs[k];
+    else node.setAttribute(k, attrs[k]);
+  }
+  for (const c of children || []) node.append(c);
+  return node;
+}
+
+function renderTable(columns, rows) {
+  const thead = el("tr", null, columns.map((c) =>
+    el("th", { class: c.num ? "num" : "" }, [c.label])));
+  const body = rows.map((r) =>
+    el("tr", null, columns.map((c) => {
+      const v = r[c.key];
+      const text = v === null || v === undefined || v === "" ? "—" : String(v);
+      return el("td", { class: c.num ? "num" : "" }, [text]);
+    })));
+  return el("div", { class: "scroll" }, [
+    el("table", null, [el("thead", null, [thead]), el("tbody", null, body)]),
+  ]);
+}
+
+function renderCard(cardId, state) {
+  const card = document.getElementById(cardId);
+  const statusEl = card.querySelector("[data-status]");
+  const bodyEl = card.querySelector("[data-body]");
+  bodyEl.textContent = "";
+  statusEl.textContent = state.status || "";
+  statusEl.className = "status" + (state.ok ? " ok" : "");
+
+  if (state.loading) {
+    bodyEl.append(el("div", { class: "msg info" }, ["Loading…"]));
+    return;
+  }
+  if (state.error) {
+    bodyEl.append(el("div", { class: "msg err" }, [state.error]));
+    return;
+  }
+  if (state.idle) {
+    bodyEl.append(el("div", { class: "msg info" },
+      ['Pick a date range and click "Load from Personio".']));
+    return;
+  }
+  if (!state.rows.length) {
+    bodyEl.append(el("div", { class: "msg info" }, ["No records for this range."]));
+    return;
+  }
+  bodyEl.append(renderTable(state.columns, state.rows));
+}
+
+// GET a JSON endpoint. Distinguishes a network failure (server not running) from
+// an HTTP error carrying the library's `{ error }` message (e.g. a missing scope).
+async function getJson(path) {
+  let res;
+  try {
+    res = await fetch(path);
+  } catch (e) {
+    return { ok: false, error: "Local server not reachable. Start it with serve-dashboard.ts." };
+  }
+  let body = null;
+  try { body = await res.json(); } catch (e) { /* leave body null */ }
+  if (!res.ok) {
+    const msg = body && body.error ? body.error : ("HTTP " + res.status + " " + res.statusText);
+    return { ok: false, error: msg };
+  }
+  return { ok: true, body: body };
+}
+
+async function loadCard(cardId, path, columns) {
+  renderCard(cardId, { loading: true, status: "loading…", columns, rows: [] });
+  const result = await getJson(path);
+  if (!result.ok) {
+    renderCard(cardId, { error: result.error, status: "error", columns, rows: [] });
+    return;
+  }
+  const rows = (result.body && Array.isArray(result.body.records)) ? result.body.records : [];
+  renderCard(cardId, { ok: true, status: "✓ " + rows.length + " records", columns, rows });
+}
+
+async function loadAll() {
+  const from = document.getElementById("from").value;
+  const to = document.getElementById("to").value;
+  const hint = document.getElementById("hint");
+  const btn = document.getElementById("load");
+  if (!from || !to) { hint.textContent = "Please pick a From and To date."; return; }
+  hint.textContent = from + " to " + to;
+  btn.disabled = true;
+  const qs = "?from=" + encodeURIComponent(from) + "&to=" + encodeURIComponent(to);
+  // Independent, in parallel: one card failing (e.g. missing scope) never blocks the other.
+  await Promise.allSettled([
+    loadCard("card-att", "/api/attendance" + qs, ATTENDANCE_COLUMNS),
+    loadCard("card-abs", "/api/absences" + qs, ABSENCE_COLUMNS),
+  ]);
+  btn.disabled = false;
+}
+
+(function init() {
+  const now = new Date();
+  const iso = (d) => d.toISOString().slice(0, 10);
+  document.getElementById("from").value = iso(new Date(now.getFullYear(), now.getMonth(), 1));
+  document.getElementById("to").value = iso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  document.getElementById("load").addEventListener("click", loadAll);
+  renderCard("card-att", { status: "", columns: ATTENDANCE_COLUMNS, rows: [], idle: true });
+  renderCard("card-abs", { status: "", columns: ABSENCE_COLUMNS, rows: [], idle: true });
+})();
+</script>
+</body>
+</html>

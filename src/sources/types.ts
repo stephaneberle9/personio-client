@@ -7,12 +7,12 @@ export interface DateRange {
   to: string;
 }
 
-/** Produces normalized attendance records for a date range (concept §5). */
+/** Produces normalized attendance records for a date range. */
 export interface AttendanceSource {
   getAttendance(range: DateRange): Promise<AttendanceRecord[]>;
 }
 
-/** Produces normalized absence records for a date range (concept §5). */
+/** Produces normalized absence records for a date range. */
 export interface AbsenceSource {
   getAbsence(range: DateRange): Promise<AbsenceRecord[]>;
 }

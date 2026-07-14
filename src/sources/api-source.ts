@@ -16,7 +16,7 @@ import type { AbsenceSource, AttendanceSource, DateRange } from './types.js';
 export interface ApiSourceOptions {
   /** Field-resolution overrides for account-specific custom fields. */
   fields?: Partial<FieldResolverConfig>;
-  /** Attendance approval status to include. Defaults to `CONFIRMED` (concept §11). */
+  /** Attendance approval status to include. Defaults to `CONFIRMED`. */
   attendanceStatus?: AttendanceStatus;
   /** Expensive project fields to expand via `includes`. */
   projectIncludes?: string[];
@@ -92,7 +92,7 @@ function firstComment(periods: AttendancePeriod[]): string {
 }
 
 /**
- * Granular data source (concept §5, §11): joins attendance-periods with
+ * Granular data source: joins attendance-periods with
  * projects, persons and cost-centers, and derives hours from the WORK periods.
  * Configuration-independent — works without a Custom Report.
  */
@@ -134,7 +134,7 @@ export class ApiSource implements AttendanceSource, AbsenceSource {
     const costCenterNameById = new Map(costCenters.map((c) => [c.id, String(c.name ?? '')]));
 
     // Group WORK and BREAK periods separately by person+date+project; subtract
-    // break time from work time within each group (concept §11).
+    // break time from work time within each group.
     const workGroups = new Map<string, AttendancePeriod[]>();
     const breakGroups = new Map<string, AttendancePeriod[]>();
     for (const period of periods) {

@@ -1,6 +1,7 @@
 {
-  "_note": "Non-secret, account-scoped config for the example scripts. Copy to personio.config.json (gitignored) and fill in your account's values, then pass it with --config ./personio.config.json. Every value also falls back to a PERSONIO_* env var. reportId and costCenters here are only DEFAULTS — a --report-id / --cost-centers CLI flag overrides them per run (leave reportId out entirely if every run passes --report-id). Credentials do NOT go here — they stay in .env.",
-  "reportId": "00000000-0000-0000-0000-000000000000",
+  "_note": "Non-secret, account-scoped config for the example scripts. Copy to personio.config.json (gitignored) and fill in your account's values, then pass it with --config ./personio.config.json. Every value also falls back to a PERSONIO_* env var. Attendance and absences come from DIFFERENT Custom Reports, so their ids are separate (attendanceReportId / absenceReportId); set only the ones you use — omit an id to make that record type fall back to the granular v2 API. These and costCenters are DEFAULTS; --attendance-report-id / --absence-report-id / --cost-centers override per run. Credentials do NOT go here — they stay in .env.",
+  "attendanceReportId": "00000000-0000-0000-0000-000000000000",
+  "absenceReportId": "00000000-0000-0000-0000-000000000000",
   "personnelFieldIds": ["dynamic_1234567890abcd.12345678"],
   "statusLabels": {
     "APPROVED": "Genehmigt",

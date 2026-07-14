@@ -74,6 +74,21 @@ npm install @stephaneberle9/personio-client
    # then fill in PERSONIO_CLIENT_ID / PERSONIO_CLIENT_SECRET
    ```
 
+   By default the examples read `.env` from the current directory. To load one
+   from a different location, set `DOTENV_CONFIG_PATH` — it's honored by
+   `dotenv/config`, which the examples preload:
+
+   ```bash
+   # bash / zsh
+   DOTENV_CONFIG_PATH=/path/to/.env npx tsx examples/serve-dashboard.ts --html examples/dashboard.html
+   ```
+
+   ```powershell
+   # PowerShell
+   $env:DOTENV_CONFIG_PATH = 'C:\path\to\.env'
+   npx tsx examples/serve-dashboard.ts --html examples/dashboard.html
+   ```
+
    Heavy exports (wide date ranges, or absence with `--absence-breakdowns`) do a
    lot of pagination and per-record N+1 calls. The client throttles itself
    automatically: Personio reports its token-bucket state on every response
@@ -192,13 +207,16 @@ import { createSource } from '@stephaneberle9/personio-client';
 
 const source = createSource(client, {
   kind: 'report',
-  report: { reportId: process.env.PERSONIO_REPORT_ID! },
+  report: { reportId: '<report-uuid>' },
 });
 ```
 
 ## Examples
 
-Run with [`tsx`](https://github.com/privatenumber/tsx) (a dev dependency).
+Run with [`tsx`](https://github.com/privatenumber/tsx). It's a **local dev
+dependency**, not a global command, so after `npm install` invoke it with
+`npx tsx …` (bare `tsx …` only works if you've installed it globally). All
+commands below use `npx`.
 
 ### Configuration
 
@@ -208,30 +226,34 @@ The examples separate three kinds of input:
 - **Pure run parameters** (`--from`, `--to`, `--type`, `--out`) — CLI flags,
   since they change every run.
 - **Account-scoped config** (`personnelFieldIds`, `statusLabels`, and *default*
-  `reportId` / `costCenters`) — belongs to the account, so it lives in one
-  optional JSON file passed with `--config`. Copy
+  `attendanceReportId` / `absenceReportId` / `costCenters`) — belongs to the
+  account, so it lives in one optional JSON file passed with `--config`. Copy
   [`personio.config.example.json`](personio.config.example.json) to
   `personio.config.json` (gitignored) and fill in your account's values:
 
   ```bash
-  tsx examples/export-xlsx.ts --from 2026-06-01 --to 2026-06-30 \
+  npx tsx examples/export-xlsx.ts --from 2026-06-01 --to 2026-06-30 \
     --type both --source api --out ./out \
     --config ./personio.config.json
   ```
 
   Each value also falls back to a `PERSONIO_*` environment variable
-  (`PERSONIO_REPORT_ID`, `PERSONIO_PERSONNEL_FIELD_IDS`) — convenient for
-  server-side use where a file is awkward. Precedence is **config file >
-  environment > built-in default**, so `--config` is entirely optional.
+  (`PERSONIO_ATTENDANCE_REPORT_ID`, `PERSONIO_ABSENCE_REPORT_ID`,
+  `PERSONIO_PERSONNEL_FIELD_IDS`) — convenient for server-side use where a file
+  is awkward. Precedence is **config file > environment > built-in default**, so
+  `--config` is entirely optional.
 
-  Two account-scoped values are *selected per run*: an account has several
-  reports and cost centers, and each run picks one. Pass `--report-id <uuid>`
-  or `--cost-centers <list>` to override the config/env default for that run —
-  which is how you compare against different reports without editing the file:
+  Attendance and absences come from **different** Custom Reports, so the report id
+  is split per type (`attendanceReportId` / `absenceReportId`); set only the ones
+  you use — omit an id to serve that record type from the granular v2 API instead.
+  These and cost centers are *selected per run*, so pass `--attendance-report-id`,
+  `--absence-report-id`, or `--cost-centers <list>` to override the config/env
+  default for a run — which is how you compare against different reports without
+  editing the file:
 
   ```bash
-  tsx examples/export-xlsx.ts --from 2026-06-01 --to 2026-06-30 \
-    --type attendance --source report --report-id <report-uuid> --out ./out
+  npx tsx examples/export-xlsx.ts --from 2026-06-01 --to 2026-06-30 \
+    --type attendance --source report --attendance-report-id <report-uuid> --out ./out
   ```
 
 ### Excel export
@@ -240,7 +262,7 @@ Reproduces the reference report format exactly (sheet names, header order, and
 exact labels, including non-breaking spaces and en-dashes).
 
 ```bash
-tsx examples/export-xlsx.ts \
+npx tsx examples/export-xlsx.ts \
   --from 2026-06-01 --to 2026-06-30 \
   --type both \
   --source api \
@@ -248,30 +270,70 @@ tsx examples/export-xlsx.ts \
 ```
 
 - `--type attendance|absence|both` (default `both`)
-- `--source api|report` (default: `report` if a `reportId` is configured, else `api`)
+- `--source api|report` (default per type: `report` if that type's report id is
+  configured, else `api`)
+- `--attendance-report-id <uuid>` / `--absence-report-id <uuid>` — override the
+  per-type report id for this run
 - `--config <path>` — optional account/locale config (see [Configuration](#configuration))
 
 ### Dashboard snapshot
 
 Writes an array of dashboard records (`{ datum, ma, kunde, kst, projekt, up,
 std, kommentar, startdatum, enddatum }`) with an audit-trail header, and can
-inject it into an HTML dashboard that reads `__PRELOADED_DATA__` on startup.
+inject it into an HTML dashboard that reads `__PRELOADED_DATA__` on startup. The
+German field names are the *localized* final form: the pipeline works in neutral
+English display records and translates to this consumer shape only at the very
+end (`examples/lib/model/snapshotData.ts`), right before the file write/injection.
 
 ```bash
-tsx examples/generate-snapshot.ts \
+npx tsx examples/generate-snapshot.ts \
   --from 2026-06-01 --to 2026-06-30 \
   --cost-centers 1001,1002,1003 \
   --source api \
   --out snapshot.json \
-  --inject-html ./dashboard.html
+  --inject-html ./your-dashboard.html
 ```
 
-Nothing account-specific is hardcoded: per-run values (cost centers, dashboard
-path) are **arguments**, and constant account config comes from `--config` or
-`PERSONIO_*` env vars (see [Configuration](#configuration)). A `--cost-centers`
-flag overrides the config file's default. With `--inject-html`, a clearly marked
-block is inserted/replaced; the page's manual Excel-import path keeps working as
-a fallback.
+> [!NOTE]
+> `--inject-html` targets **your own** controlling dashboard — a page that reads a
+> `__PRELOADED_DATA__` array on startup. It is **not** the bundled
+> [`examples/dashboard.html`](examples/dashboard.html): that page is the *live*
+> dashboard ([below](#serve-the-dashboard-locally)), which fetches from the local
+> API and contains no `__PRELOADED_DATA__` block (and renders English keys, whereas
+> the injected records are the German `SnapshotRecord` shape). Omit `--inject-html`
+> to just write the JSON snapshot.
+
+`--inject-html` inserts a marker-delimited `<script>` block before `</head>`
+(idempotent — re-running replaces it) that defines the `__PRELOADED_DATA__` global
+your page reads on startup, plus a `__PRELOADED_SNAPSHOT_META__` audit object:
+
+```html
+<!-- PERSONIO_SNAPSHOT:START (generated block — safe to replace) -->
+<script>
+const __PRELOADED_DATA__ = [
+  {
+    "datum": "2026-06-15",
+    "ma": "Schmidt, Anna",
+    "kunde": "Acme GmbH",
+    "kst": "50101 Vertrieb",
+    "projekt": "Website Relaunch",
+    "up": "Frontend",
+    "std": 7.5,
+    "kommentar": "Sprint 12",
+    "startdatum": "2026-01-01",
+    "enddatum": "2026-12-31"
+  }
+  // …one object per attendance record
+];
+const __PRELOADED_SNAPSHOT_META__ = { "from": "2026-06-01", "to": "2026-06-30", "source": "api", "count": 1 };
+</script>
+<!-- PERSONIO_SNAPSHOT:END -->
+```
+
+The keys are German (they match a specific consumer dashboard's row normalizer):
+`datum` date · `ma` employee `"Nachname, Vorname"` · `kunde` customer · `kst` cost
+center · `projekt` project · `up` sub-project · `std` hours · `kommentar` comment ·
+`startdatum` project start · `enddatum` project end.
 
 ### Serve the dashboard locally
 
@@ -281,8 +343,13 @@ beforehand. Starts a small local server, serves your HTML at `/`, and opens the
 default browser.
 
 ```bash
-tsx examples/serve-dashboard.ts --html ./dashboard.html --config personio.config.json
+npx tsx examples/serve-dashboard.ts --html examples/dashboard.html --config personio.config.json
 ```
+
+`examples/dashboard.html` is a ready-made, generic dashboard for both endpoints:
+two independent cards (Attendance + Absences), each loading on its own so that a
+credential missing a scope for one source shows that card's scope-aware error
+while the other still loads — the per-source error display is the whole point.
 
 - `--html <path>` — static HTML file served at `/` (required)
 - `--port <n>` — listen port (default `4173`)
@@ -292,11 +359,18 @@ tsx examples/serve-dashboard.ts --html ./dashboard.html --config personio.config
 Endpoints:
 
 - `GET /` — the HTML file passed via `--html`.
-- `GET /api/snapshot?from=YYYY-MM-DD&to=YYYY-MM-DD&source=api|report` — a live
-  pull, returning `{ records, meta }` as JSON. On failure it returns a JSON error
-  body with an appropriate status, preserving the library's scope-aware error
-  hints instead of a bare 500. Every successful pull also writes an audit copy to
-  `audit/snapshot_<timestamp>.json`.
+- `GET /api/attendance?from=YYYY-MM-DD&to=YYYY-MM-DD&source=api|report` — a live
+  attendance pull, returning `{ records }` as JSON. On failure it returns a JSON
+  error body with an appropriate status, preserving the library's scope-aware
+  error hints instead of a bare 500.
+- `GET /api/absences?from=YYYY-MM-DD&to=YYYY-MM-DD&source=api|report` — the same
+  contract for absences. Kept a separate endpoint so a credential that may read
+  attendance but not absences fails only this call, letting the dashboard show
+  each source's error independently.
+
+The server is a live view — it returns records only. The audit-trail artifact
+(records **plus** a provenance `meta` block) is produced by `generate-snapshot.ts`,
+not here.
 
 This server is **local-only by design**: it binds to `127.0.0.1`, serves the one
 person at the machine, and reads credentials from `.env` that never leave the

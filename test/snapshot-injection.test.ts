@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildSnapshotBlock, injectSnapshot } from '../examples/lib/snapshotInjector.js';
-import type { Snapshot } from '../examples/lib/snapshotBuilder.js';
+import {
+  buildSnapshotBlock,
+  injectSnapshot,
+} from '../examples/lib/snapshotInjector.js';
+import type { Snapshot } from '../examples/lib/model/snapshotData.js';
 
 const snapshot: Snapshot = {
   meta: { from: '2026-06-01', to: '2026-06-30', source: 'api', reportId: null, generatedAt: '2026-06-28T00:00:00.000Z', count: 1 },

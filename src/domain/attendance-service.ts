@@ -11,7 +11,7 @@ export interface AttendanceQuery extends DateRange {
 }
 
 /**
- * High-level attendance service (concept §4): returns normalized
+ * High-level attendance service: returns normalized
  * {@link AttendanceRecord}s for a range from whichever {@link AttendanceSource}
  * it was given (granular API or Custom Report).
  */

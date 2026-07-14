@@ -9,8 +9,8 @@ import {
   MONTHLY_SHEET_NAME,
   attendanceRow,
   absenceRow,
-} from '../examples/lib/model/sheet.js';
-import { buildSheetWorkbook, readHeaderRow } from '../examples/lib/xlsx.js';
+} from '../examples/lib/model/sheetContent.js';
+import { buildSheetWorkbook, readHeaderRow } from '../examples/lib/xlsxBuilder.js';
 import type { AbsenceRecord, AttendanceRecord } from '../src/index.js';
 
 /** Ground truth captured from the reference spreadsheets (header labels only). */

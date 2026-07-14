@@ -69,10 +69,10 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    'Pick a flat table report matching the export type, then:\n' +
-      '  $env:PERSONIO_REPORT_ID = "<id>"\n' +
-      '  npx tsx examples/export-xlsx.ts --from ... --to ... --type <attendance|absence> --source report --out out/report\n' +
-      '(attendance and absence need their own report id, one run each)',
+    'Pick a flat table report per record type, then pass its id to the export:\n' +
+      '  npx tsx examples/export-xlsx.ts --from ... --to ... --type attendance --source report --attendance-report-id <id> --out out/report\n' +
+      '  npx tsx examples/export-xlsx.ts --from ... --to ... --type absence --source report --absence-report-id <id> --out out/report\n' +
+      '(attendance and absence live in different reports; give each its own id)',
   );
 }
 

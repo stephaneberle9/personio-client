@@ -1,5 +1,5 @@
 /**
- * Normalized absence row — the stable exchange format for absences (concept §6).
+ * Normalized absence row — the stable exchange format for absences.
  * Field names are neutral English; the Excel example maps them to the German
  * report column labels.
  */

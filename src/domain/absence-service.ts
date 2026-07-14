@@ -2,7 +2,7 @@ import type { AbsenceRecord } from '../model/absence-record.js';
 import type { AbsenceSource, DateRange } from '../sources/types.js';
 
 /**
- * High-level absence service (concept §4): returns normalized
+ * High-level absence service: returns normalized
  * {@link AbsenceRecord}s for a range from whichever {@link AbsenceSource} it was
  * given (granular API or Custom Report).
  */

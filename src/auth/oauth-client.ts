@@ -27,7 +27,7 @@ interface CachedToken {
  * OAuth2 *client credentials* token provider for the Personio v2 API.
  *
  * `POST /v2/auth/token` (form-urlencoded) → `{ access_token, expires_in, ... }`.
- * The token is cached in memory (never persisted — see concept §12) and shared
+ * The token is cached in memory (never persisted) and shared
  * across concurrent callers via a single in-flight promise, then refreshed
  * {@link EXPIRY_BUFFER_SECONDS} before it expires.
  */
