@@ -127,7 +127,30 @@ describe('/v2/reports 400 flavors', () => {
     expect(message).toContain('wrong report id');
     expect(message).toContain('does not have API access activated');
     expect(message).toContain('per-report toggle');
-    expect(message).toContain('empty 200 list');
+    expect(message).toContain('may not appear in GET /v2/reports');
+  });
+
+  // Flavor 4: a shared, listed report that still can't be read for a flat export
+  // (grouped/aggregated or a filter the read can't resolve) → 400 "Array contains
+  // no element matching the predicate". Must NOT be blamed on a wrong id / access.
+  it('hints a shared-but-unreadable report on 400 "no element matching the predicate"', async () => {
+    server.use(
+      http.get(`${BASE}/v2/reports/62a88ce2-1ba3-41d3-9b0c-502d1251b568`, () =>
+        HttpResponse.json(
+          { error: { message: 'Array contains no element matching the predicate.' } },
+          { status: 400 }
+        )
+      )
+    );
+
+    const message = await messageFrom(
+      makeHttp().get('/v2/reports/62a88ce2-1ba3-41d3-9b0c-502d1251b568')
+    );
+    expect(message).toContain('grouped/aggregated');
+    expect(message).toContain('scripts/list-reports.ts');
+    expect(message).toContain('not a wrong id or missing access right');
+    // It must not misattribute this to the wrong-id / access-toggle cause.
+    expect(message).not.toContain('does not have API access activated');
   });
 });
 

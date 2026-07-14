@@ -119,9 +119,11 @@ function ambiguousUnauthorizedHint(scope: string | undefined): string {
 
 /**
  * Hint for a `400` on `/v2/reports`, disambiguated by the response body. The
- * Reporting v2 endpoint overloads `400` for three unrelated causes (all
- * confirmed live), and its own messages are
- * ambiguous — so the hint is phrased as the most likely cause, not a certainty.
+ * Reporting v2 endpoint overloads `400` for several unrelated causes (all
+ * confirmed live) — a missing reports right, a grouped/chart report, a
+ * shared-but-unreadable report, and a wrong id / missing API access — and its
+ * own messages are ambiguous, so the hint is phrased as the most likely cause,
+ * not a certainty.
  */
 function reportsBadRequestHint(apiMessage: string, scope: string | undefined): string {
   if (/unauthorized token/i.test(apiMessage)) {
@@ -140,13 +142,23 @@ function reportsBadRequestHint(apiMessage: string, scope: string | undefined): s
       ` export it via the API.`
     );
   }
+  if (/no element matching the predicate/i.test(apiMessage)) {
+    return (
+      ` The report is most likely shared and appears in GET /v2/reports, but Personio still cannot` +
+      ` read it for a flat export — most likely it is grouped/aggregated or carries a report` +
+      ` filter/timeframe the /v2/reports/{id} read cannot resolve (the same limitation as` +
+      ` "unsupported nested type"). Rebuild it as a flat, ungrouped table report, or read the same` +
+      ` data via the granular ApiSource instead. Cross-check with scripts/list-reports.ts: if the id` +
+      ` appears there, this is a report-structure problem, not a wrong id or missing access right.`
+    );
+  }
   return (
     ` This is most likely either a wrong report id, or the report does not have API access` +
     ` activated. API access is a per-report toggle in Personio (the report's "API access" /` +
     ` "API-Zugriff" column), separate from both the reports read scope and from sharing the report` +
-    ` with people (its "shared"/"private" status) — a report without API access activated is` +
-    ` invisible to the API, so GET /v2/reports also returns an empty 200 list. Verify the id and` +
-    ` that API access is activated for the report, then retry.`
+    ` with people (its "shared"/"private" status) — a report without API access activated may not` +
+    ` appear in GET /v2/reports at all. Verify the id and that API access is activated for the` +
+    ` report, then retry.`
   );
 }
 
